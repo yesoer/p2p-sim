@@ -12,6 +12,7 @@ go build main.go
 ## Run
 
 ```sh
+./main
 ```
 
 ### Flags
