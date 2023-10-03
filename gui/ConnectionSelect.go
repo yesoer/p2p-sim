@@ -25,7 +25,6 @@ func NewConnectionsSelect(network backend.Network, canvasRaster Canvas) Connecti
 			ccol, crow := col, row // copy for closure
 			checkboxHandler := func(b bool) {
 				// connect the two nodes
-				// TODO : needs to be possible to undo, solution probably ties in to TODO where we compare channel references to get point connections
 				if b {
 					network.ConnectNodes(crow, ccol)
 				} else {

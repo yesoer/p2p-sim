@@ -50,8 +50,6 @@ func RunGUI(network backend.Network, size fyne.Size) {
 	// EMBED COMPONENTS IN LAYOUT
 
 	// Popup
-	// TODO : the way we use close buttons on popups should be wrapped in a modal
-	//		  component
 	connectionsCanvasObj := connections.GetCanvasObj()
 	wcanvas := window.Canvas()
 	connectionTab := NewModal(connectionsCanvasObj, wcanvas)

@@ -2,7 +2,6 @@ package backend
 
 import (
 	"sync"
-	"time"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -24,9 +23,9 @@ type Connection struct {
 }
 
 type node struct {
-	connections []*Connection // TODO : the length of this should be available in lua
-	id          int           // TODO : still don't know about this, keep ids implicit or explicit everywhere
-	data        interface{}   // json data to expose to lua
+	connections []*Connection
+	id          int         // TODO : still don't know about this, keep ids implicit or explicit everywhere
+	data        interface{} // json data to expose to lua
 }
 
 func NewNode(id int) Node {
@@ -43,16 +42,12 @@ func (n *node) SetData(json interface{}) {
 // TODO : another one to send to all
 // TODO : another one to provide equation, send to all that resolve it e.g. for all even id's
 func (n *node) Send(targetId int, data any) int {
-	// TODO : temporary delay on sending to see if await works, remove routine
-	go func() {
-		time.Sleep(time.Second * 5)
-		for _, c := range n.connections {
-			if c.Target == targetId {
-				c.Chan <- data
-				return
-			}
+	for _, c := range n.connections {
+		if c.Target == targetId {
+			c.Chan <- data
+			return 0
 		}
-	}()
+	}
 	return 0
 }
 
@@ -93,7 +88,7 @@ func (n *node) Run(signals chan Signal, code Code) {
 	go func() {
 		for {
 			// wait for start signal
-			// TODO : outsource to utils
+			// TODO : outsource to utils ?
 			for sig := <-signals; sig != START; sig = <-signals {
 				// await START
 			}

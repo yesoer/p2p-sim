@@ -33,7 +33,6 @@ func NewCanvas(network backend.Network, wcanvas fyne.Canvas) Canvas {
 
 	buttonGen := func(i int) func() {
 		return func() {
-			// TODO : popup also needs closing
 			p := nodePopups[i]
 			p.Resize(fyne.NewSize(300, 300))
 			p.Show()
