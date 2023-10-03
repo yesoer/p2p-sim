@@ -5,6 +5,7 @@ import (
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
+	"golang.org/x/net/context"
 )
 
 type Node interface {
@@ -83,6 +84,7 @@ func (n *node) Await(cnt int) int {
 	return 1
 }
 
+// a node will run continuously, the current state can be changed using signals
 func (n *node) Run(signals chan Signal, code Code) {
 	// code exec
 	go func() {
@@ -92,6 +94,8 @@ func (n *node) Run(signals chan Signal, code Code) {
 			for sig := <-signals; sig != START; sig = <-signals {
 				// await START
 			}
+
+			ctx, cancel := context.WithCancel(context.Background())
 
 			// execute code
 			go func() {
@@ -110,16 +114,16 @@ func (n *node) Run(signals chan Signal, code Code) {
 				}
 
 				// TODO : accept empty interface as return/do we even need returns ?
-				// TODO : pass a context that we can use to cancel execution
-				userF := v.Interface().(func(func(targetId int, data any) int, func(int) int) string)
+				userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) string)
 
-				_ = userF(n.Send, n.Await)
+				_ = userF(ctx, n.Send, n.Await)
 			}()
 
 			// wait for other signals
 			for sig := range signals {
 				if sig == STOP {
-					// TODO : kill exec of f
+					// kill exec of userF and return to start of loop
+					cancel()
 					break
 				}
 			}
