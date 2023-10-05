@@ -3,6 +3,8 @@ package backend
 import (
 	"sync"
 
+	"log"
+
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 	"golang.org/x/net/context"
@@ -14,7 +16,7 @@ type Node interface {
 	ConnectTo(peerId int)
 	DisconnectFrom(peerId int)
 	GetConnections() []*Connection
-	Run(signals chan Signal, code Code)
+	Run(signals chan Signal, code *Code)
 	SetData(json interface{})
 }
 
@@ -85,7 +87,7 @@ func (n *node) Await(cnt int) int {
 }
 
 // a node will run continuously, the current state can be changed using signals
-func (n *node) Run(signals chan Signal, code Code) {
+func (n *node) Run(signals chan Signal, code *Code) {
 	// code exec
 	go func() {
 		for {
@@ -103,14 +105,15 @@ func (n *node) Run(signals chan Signal, code Code) {
 
 				i.Use(stdlib.Symbols)
 
-				_, err := i.Eval(string(code))
+				_, err := i.Eval(string(*code))
 				if err != nil {
 					panic(err)
 				}
 
 				v, err := i.Eval("Run")
 				if err != nil {
-					panic(err)
+					// TODO : propagate to ui
+					log.Println("error ", err)
 				}
 
 				// TODO : accept empty interface as return/do we even need returns ?

@@ -7,7 +7,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -36,15 +35,24 @@ func RunGUI(network backend.Network, size fyne.Size) {
 	execution := NewControlBar(network)
 
 	// create an editor for the nodes behaviour
-	workingDir := "."
+	workingDir := "~/Documents/GitHub/P2PSim"
 	path := workingDir + "/code.go"
-	// TODO : could probably move this to editor.go
+
+	// TODO : move this to editor.go ?
 	onSubmitted := func(e *Editor) {
-		text := e.Content()
-		code := backend.Code(text)
+		code, err := e.GetContent()
+		if err == nil {
+			network.SetCode(code)
+		}
+		fmt.Println("error : ", err)
+	}
+
+	editor := NewEditor(path, window, onSubmitted)
+
+	code, err := editor.GetContent()
+	if err == nil {
 		network.SetCode(code)
 	}
-	editor := NewTextEditor(path, window, onSubmitted)
 
 	//-------------------------------------------------------
 	// EMBED COMPONENTS IN LAYOUT
@@ -57,14 +65,6 @@ func RunGUI(network backend.Network, size fyne.Size) {
 		connectionTab.Show()
 	})
 	execution.Add(connect)
-
-	// save edited file
-	// TODO : trigger on editor, not canvas/else
-	saveSC := &desktop.CustomShortcut{KeyName: fyne.KeyS, Modifier: fyne.KeyModifierControl}
-	window.Canvas().AddShortcut(saveSC, func(shortcut fyne.Shortcut) {
-		fmt.Println("Save triggered")
-		editor.Save()
-	})
 
 	// Layout : resizable middle split with the editor left and everything else
 	// on the right

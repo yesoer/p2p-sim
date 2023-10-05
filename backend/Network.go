@@ -2,7 +2,6 @@ package backend
 
 import (
 	"log"
-	"os"
 )
 
 type Signal int
@@ -27,20 +26,20 @@ type Network interface {
 }
 
 func (n *network) GetCode() Code {
-	return n.Code
+	return *n.Code
 }
 
 type network struct {
 	Nodes   []Node
 	Signals chan Signal
-	Code    Code
+	Code    *Code
 }
 
 func NewNetwork() Network {
 	var nodes []Node
 	var code Code
 	signals := make(chan Signal, 10)
-	return &network{nodes, signals, code}
+	return &network{nodes, signals, &code}
 }
 
 func (n *network) SetData(json interface{}, toId int) {
@@ -48,7 +47,7 @@ func (n *network) SetData(json interface{}, toId int) {
 }
 
 func (n *network) SetCode(code Code) {
-	n.Code = code
+	*n.Code = code
 }
 
 func (n *network) ConnectNodes(fromId, toId int) {
@@ -62,15 +61,6 @@ func (n *network) DisconnectNodes(fromId, toId int) {
 func (n *network) Init(cnt int) {
 	for i := 0; i < cnt; i++ {
 		newNode := NewNode(i)
-
-		// TODO : redundant with editor
-		// and also needs changing on code editing
-		// I think just use network.SetCode in editor
-		b, err := os.ReadFile("./code.go")
-		if err == nil {
-			n.Code = Code(b)
-		}
-
 		newNode.Run(n.Signals, n.Code)
 		n.Nodes = append(n.Nodes, newNode)
 	}
