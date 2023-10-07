@@ -38,13 +38,14 @@ func RunGUI(network backend.Network, size fyne.Size) {
 	// create an editor for the nodes behaviour
 	workingDir := "."
 	path := workingDir + "/code.go"
-	// TODO : could probably move this to editor.go
+
+	// TODO : could move this to editor.go
 	onSubmitted := func(e *Editor) {
 		text := e.Content()
 		code := backend.Code(text)
 		network.SetCode(code)
 	}
-	editor := NewTextEditor(path, window, onSubmitted)
+	editor := NewTextEditor(path, window, onSubmitted, network)
 
 	//-------------------------------------------------------
 	// EMBED COMPONENTS IN LAYOUT

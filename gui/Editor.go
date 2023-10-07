@@ -3,6 +3,7 @@ package gui
 // NOTE : extended (text-)editor from github.com/fyne-io/defyne/
 
 import (
+	"distributed-sys-emulator/backend"
 	"fmt"
 	"os"
 
@@ -19,7 +20,7 @@ type Editor struct {
 // Declare conformance with the Component interface
 var _ Component = (*Editor)(nil)
 
-func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor)) *Editor {
+func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), network backend.Network) *Editor {
 	input := widget.NewMultiLineEntry()
 	input.TextStyle.Monospace = true
 	input.Wrapping = fyne.TextTruncate
@@ -29,6 +30,8 @@ func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor)) *Editor
 	if err == nil {
 		input.SetText(string(b))
 	}
+
+	network.SetCode(backend.Code(b))
 
 	editor := &Editor{input, path, false}
 	editor.OnChanged = func(_ string) {
