@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/traefik/yaegi/interp"
@@ -14,7 +15,7 @@ type Node interface {
 	ConnectTo(peerId int)
 	DisconnectFrom(peerId int)
 	GetConnections() []*Connection
-	Run(signals chan Signal, code Code)
+	Run(signals chan Signal, codeC chan Code)
 	SetData(json interface{})
 }
 
@@ -85,7 +86,16 @@ func (n *node) Await(cnt int) int {
 }
 
 // a node will run continuously, the current state can be changed using signals
-func (n *node) Run(signals chan Signal, code Code) {
+func (n *node) Run(signals chan Signal, codeC chan Code) {
+	code := Code("")
+
+	// continuously check for code updates
+	go func() {
+		for {
+			code = <-codeC
+		}
+	}()
+
 	// code exec
 	go func() {
 		for {
@@ -110,7 +120,9 @@ func (n *node) Run(signals chan Signal, code Code) {
 
 				v, err := i.Eval("Run")
 				if err != nil {
-					panic(err)
+					fmt.Println("Error ", err)
+					// TODO : should 'continue' outer loop aswell
+					return
 				}
 
 				// TODO : accept empty interface as return/do we even need returns ?
