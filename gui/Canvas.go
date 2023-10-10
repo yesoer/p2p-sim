@@ -49,8 +49,15 @@ func NewCanvas(network backend.Network, wcanvas fyne.Canvas) Canvas {
 		jsonInput.PlaceHolder = `{"foo":"bar"}`
 		jsonInput.Resize(fyne.NewSize(300, 300))
 
+		// TODO : can we process the json to structs ?
+		// TODO : check json format validity
 		jsonInput.OnChanged = func(s string) {
+			network.SetData(s, i)
 			errorLabel.Hide()
+		}
+		data, ok := network.GetData(i).(string)
+		if ok {
+			jsonInput.SetText(data)
 		}
 
 		jsonInput.OnSubmitted = func(s string) {
