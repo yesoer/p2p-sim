@@ -61,6 +61,7 @@ func RunGUI(network backend.Network, size fyne.Size) {
 
 	// save edited file
 	// TODO : trigger on editor, not canvas/else
+	// TODO : can we get 'command' to work ?
 	saveSC := &desktop.CustomShortcut{KeyName: fyne.KeyS, Modifier: fyne.KeyModifierControl}
 	window.Canvas().AddShortcut(saveSC, func(shortcut fyne.Shortcut) {
 		fmt.Println("Save triggered")

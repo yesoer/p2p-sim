@@ -22,6 +22,7 @@ type Network interface {
 	DisconnectNodes(fromId, toId int)
 	SetCode(code Code)
 	SetData(json interface{}, toId int)
+	GetData(toId int) interface{}
 }
 
 type network struct {
@@ -39,6 +40,10 @@ func NewNetwork() Network {
 
 func (n *network) SetData(json interface{}, toId int) {
 	n.Nodes[toId].SetData(json)
+}
+
+func (n *network) GetData(toId int) interface{} {
+	return n.Nodes[toId].GetData()
 }
 
 func (n *network) SetCode(code Code) {

@@ -17,6 +17,7 @@ type Node interface {
 	GetConnections() []*Connection
 	Run(signals chan Signal, codeC chan Code)
 	SetData(json interface{})
+	GetData() interface{}
 }
 
 type Connection struct {
@@ -37,6 +38,10 @@ func NewNode(id int) Node {
 
 func (n *node) SetData(json interface{}) {
 	n.data = json
+}
+
+func (n *node) GetData() interface{} {
+	return n.data
 }
 
 // function to be used from lua to send a message (data is the first parameter)
@@ -105,7 +110,8 @@ func (n *node) Run(signals chan Signal, codeC chan Code) {
 				// await START
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
+			var cancel context.CancelFunc
+			var ctx context.Context
 
 			// execute code
 			go func() {
@@ -125,9 +131,11 @@ func (n *node) Run(signals chan Signal, codeC chan Code) {
 					return
 				}
 
+				// make node specific data accessible
+				ctx, cancel = context.WithCancel(context.WithValue(context.Background(), "node", n.data))
+
 				// TODO : accept empty interface as return/do we even need returns ?
 				userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) string)
-
 				_ = userF(ctx, n.Send, n.Await)
 			}()
 
