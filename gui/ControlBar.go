@@ -1,7 +1,7 @@
 package gui
 
 import (
-	"distributed-sys-emulator/backend"
+	"distributed-sys-emulator/bus"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -15,13 +15,15 @@ type ControlBar struct {
 // Declare conformance with the Component interface
 var _ Component = (*ControlBar)(nil)
 
-func NewControlBar(network backend.Network) ControlBar {
+func NewControlBar(eb *bus.EventBus) ControlBar {
 	execution := container.NewHBox(
 		widget.NewButton("Start", func() {
-			network.Emit(backend.START)
+			e := bus.Event{Type: bus.StartEvt, Data: nil}
+			eb.Publish(e)
 		}),
 		widget.NewButton("Stop", func() {
-			network.Emit(backend.STOP)
+			e := bus.Event{Type: bus.StopEvt, Data: nil}
+			eb.Publish(e)
 		}),
 	)
 

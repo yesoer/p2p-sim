@@ -2,6 +2,7 @@ package main
 
 import (
 	"distributed-sys-emulator/backend"
+	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/gui"
 	"flag"
 
@@ -10,12 +11,18 @@ import (
 
 var networkSizeFlag = flag.Int("network-size", 2, "define how many nodes you want in your network")
 
+// TODO : use the eventbus designed in DEV to facilitate back and forth
+//
+//	       communication between network and backend.
+//			  but with centralized definition of available topics or something like that
 func main() {
+	eb := bus.NewEventbus()
+
 	// Init backend
 	flag.Parse()
-	network := backend.NewNetwork()
-	network.Init(*networkSizeFlag)
+	network := backend.NewNetwork(eb)
+	network.Init(*networkSizeFlag, eb)
 
 	// Init frontend
-	gui.RunGUI(network, fyne.NewSize(800, 600))
+	gui.RunGUI(*networkSizeFlag, fyne.NewSize(1000, 800), eb)
 }

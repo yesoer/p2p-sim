@@ -2,6 +2,7 @@ package gui
 
 import (
 	"distributed-sys-emulator/backend"
+	"distributed-sys-emulator/bus"
 	"fmt"
 
 	"fyne.io/fyne/v2"
@@ -15,25 +16,25 @@ type Component interface {
 	GetCanvasObj() fyne.CanvasObject
 }
 
-func RunGUI(network backend.Network, size fyne.Size) {
+func RunGUI(nodeCnt int, wsize fyne.Size, eb *bus.EventBus) {
 	// basics
 	a := app.New()
 	window := a.NewWindow("Distributed System Emulator")
 	window.SetMaster()
-	window.Resize(size)
+	window.Resize(wsize)
 	window.CenterOnScreen()
 
 	//-------------------------------------------------------
 	// CREATE COMPONENTS
 
 	// canvas
-	canvasRaster := NewCanvas(network, window.Canvas())
+	canvasRaster := NewCanvas(eb, window.Canvas(), nodeCnt)
 
 	// connections
-	connections := NewConnectionsSelect(network, canvasRaster)
+	connections := NewConnectionsSelect(eb, canvasRaster, nodeCnt)
 
 	// create a pane to control execution
-	execution := NewControlBar(network)
+	execution := NewControlBar(eb)
 
 	// create an editor for the nodes behaviour
 	workingDir := "."
@@ -43,9 +44,10 @@ func RunGUI(network backend.Network, size fyne.Size) {
 	onSubmitted := func(e *Editor) {
 		text := e.Content()
 		code := backend.Code(text)
-		network.SetCode(code)
+		evt := bus.Event{Type: bus.CodeChangedEvt, Data: code}
+		eb.Publish(evt)
 	}
-	editor := NewTextEditor(path, window, onSubmitted, network)
+	editor := NewTextEditor(path, window, onSubmitted, eb)
 
 	//-------------------------------------------------------
 	// EMBED COMPONENTS IN LAYOUT

@@ -2,6 +2,7 @@ package gui
 
 import (
 	"distributed-sys-emulator/backend"
+	"distributed-sys-emulator/bus"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -21,9 +22,9 @@ type Canvas struct {
 // Declare conformance with the Component interface
 var _ Component = (*Canvas)(nil)
 
-func NewCanvas(network backend.Network, wcanvas fyne.Canvas) Canvas {
+func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas, nodeCnt int) Canvas {
 	var canvasRaster *canvas.Raster
-	points := pointsOnCircle(point{50, 50}, 35, network.GetNodeCnt())
+	points := pointsOnCircle(point{50, 50}, 35, nodeCnt)
 
 	canvasc := container.NewMax()
 	buttonsc := container.NewWithoutLayout()
@@ -49,18 +50,8 @@ func NewCanvas(network backend.Network, wcanvas fyne.Canvas) Canvas {
 		jsonInput.PlaceHolder = `{"foo":"bar"}`
 		jsonInput.Resize(fyne.NewSize(300, 300))
 
-		// TODO : can we process the json to structs ?
-		// TODO : check json format validity
 		jsonInput.OnChanged = func(s string) {
-			network.SetData(s, i)
-			errorLabel.Hide()
-		}
-		data, ok := network.GetData(i).(string)
-		if ok {
-			jsonInput.SetText(data)
-		}
-
-		jsonInput.OnSubmitted = func(s string) {
+			// unmarshal string/check json format validity
 			var data interface{}
 			err := json.Unmarshal([]byte(s), &data)
 			if err != nil {
@@ -68,7 +59,12 @@ func NewCanvas(network backend.Network, wcanvas fyne.Canvas) Canvas {
 				errorLabel.Show()
 				return
 			}
-			network.SetData(data, i)
+
+			changeData := bus.NodeDataChangeData{TargetId: i, Data: data}
+			evt := bus.Event{Type: bus.NodeDataChangeEvt, Data: changeData}
+			eb.Publish(evt)
+
+			errorLabel.Hide()
 		}
 
 		vstack := container.NewVBox(
@@ -86,6 +82,15 @@ func NewCanvas(network backend.Network, wcanvas fyne.Canvas) Canvas {
 		buttons[i].Resize(buttons[i].MinSize())
 	}
 
+	// keep connections up to date
+	var connections [][]*backend.Connection
+	eb.Bind(bus.ConnectionChangeEvt, func(e bus.Event) {
+		newConnections, ok := e.Data.([][]*backend.Connection)
+		if ok {
+			connections = newConnections
+		}
+	})
+
 	canvasRaster = canvas.NewRaster(func(w, h int) image.Image {
 		ratiow := float64(w) / 100
 		ratioh := float64(h) / 100
@@ -100,7 +105,7 @@ func NewCanvas(network backend.Network, wcanvas fyne.Canvas) Canvas {
 		}
 
 		// draw nodes and edges
-		return draw(w, h, network, points)
+		return draw(w, h, points, &connections)
 	})
 
 	canvasc.Add(canvasRaster)
@@ -114,7 +119,7 @@ func (c Canvas) GetCanvasObj() fyne.CanvasObject {
 
 // gets width and height for the image, a network of nodes and the points that
 // represent the nodes on the image but for 100x100 units
-func draw(w, h int, network backend.Network, points []point) image.Image {
+func draw(w, h int, points []point, connections *[][]*backend.Connection) image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 
 	// TODO : do this once in the beginning/on every resize ?
@@ -126,7 +131,7 @@ func draw(w, h int, network backend.Network, points []point) image.Image {
 
 	ratiow := float64(w) / 100
 	ratioh := float64(h) / 100
-	lines := connLines(network, points, ratiow, ratioh)
+	lines := connLines(connections, points, ratiow, ratioh)
 
 	// draw nodes
 	for _, p := range points {
@@ -223,12 +228,12 @@ type line struct {
 
 // nodes and points are implicitly linked by their slice length, so nodes[0] is
 // represented by points[0]
-func connLines(n backend.Network, points []point, ratiow, ratioh float64) []line {
+func connLines(connections *[][]*backend.Connection, points []point, ratiow, ratioh float64) []line {
 	// iterate over the incoming edges for each node and calculate the connection
 	// line
 	lines := []line{}
-	connections := n.GetConnections()
-	for sourceId, connList := range connections {
+
+	for sourceId, connList := range *connections {
 		for _, conn := range connList {
 			pTo := points[conn.Target]
 			pFrom := points[sourceId]
