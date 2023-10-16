@@ -15,7 +15,7 @@ type ConnectionsSelect struct {
 // Declare conformance with the Component interface
 var _ Component = (*ConnectionsSelect)(nil)
 
-func NewConnectionsSelect(eb *bus.EventBus, canvasRaster Canvas, nodesCnt int) ConnectionsSelect {
+func NewConnectionsSelect(eb *bus.EventBus, nodesCnt int) ConnectionsSelect {
 	// create a checkbox grid to manage nodes/connections
 	connections := container.NewGridWithColumns(nodesCnt)
 
@@ -36,8 +36,6 @@ func NewConnectionsSelect(eb *bus.EventBus, canvasRaster Canvas, nodesCnt int) C
 					e := bus.Event{Type: bus.DisconnectNodesEvt, Data: data}
 					eb.Publish(e)
 				}
-
-				canvasRaster.Refresh()
 			}
 			checkbox := widget.NewCheck("", checkboxHandler)
 

@@ -31,7 +31,7 @@ func RunGUI(nodeCnt int, wsize fyne.Size, eb *bus.EventBus) {
 	canvasRaster := NewCanvas(eb, window.Canvas(), nodeCnt)
 
 	// connections
-	connections := NewConnectionsSelect(eb, canvasRaster, nodeCnt)
+	connections := NewConnectionsSelect(eb, nodeCnt)
 
 	// create a pane to control execution
 	execution := NewControlBar(eb)
