@@ -88,6 +88,7 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas, nodeCnt int) Canvas {
 		newConnections, ok := e.Data.([][]*backend.Connection)
 		if ok {
 			connections = newConnections
+			canvasRaster.Refresh()
 		}
 	})
 
