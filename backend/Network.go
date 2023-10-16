@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"distributed-sys-emulator/bus"
 	"log"
 )
 
@@ -14,7 +15,7 @@ const (
 )
 
 type Network interface {
-	Init(cnt int)
+	Init(cnt int, eb *bus.EventBus)
 	Emit(s Signal)
 	GetConnections() [][]*Connection
 	GetNodeCnt() int
@@ -31,7 +32,7 @@ type network struct {
 	Code    chan Code
 }
 
-func NewNetwork() Network {
+func NewNetwork(eb *bus.EventBus) Network {
 	var nodes []Node
 	signals := make(chan Signal, 10)
 	code := make(chan Code, 10)
@@ -60,12 +61,47 @@ func (n *network) DisconnectNodes(fromId, toId int) {
 	n.Nodes[fromId].DisconnectFrom(toId)
 }
 
-func (n *network) Init(cnt int) {
+func (n *network) Init(cnt int, eb *bus.EventBus) {
 	for i := 0; i < cnt; i++ {
 		newNode := NewNode(i)
 
 		newNode.Run(n.Signals, n.Code)
 		n.Nodes = append(n.Nodes, newNode)
+
+		// bind node handlers to the various relevant events
+		eb.Bind(bus.StartEvt, func(e bus.Event) { n.Emit(START) })
+
+		eb.Bind(bus.StopEvt, func(e bus.Event) { n.Emit(STOP) })
+
+		eb.Bind(bus.ConnectNodesEvt, func(e bus.Event) {
+			connData := e.Data.(bus.CheckboxPos)
+			n.ConnectNodes(connData.Ccol, connData.Crow)
+
+			// publish event back to gui
+			connections := n.GetConnections()
+			newEvent := bus.Event{Type: bus.ConnectionChangeEvt, Data: connections}
+			eb.Publish(newEvent)
+		})
+
+		eb.Bind(bus.DisconnectNodesEvt, func(e bus.Event) {
+			connData := e.Data.(bus.CheckboxPos)
+			n.DisconnectNodes(connData.Ccol, connData.Crow)
+
+			// publish event back to gui
+			connections := n.GetConnections()
+			newEvent := bus.Event{Type: bus.ConnectionChangeEvt, Data: connections}
+			eb.Publish(newEvent)
+		})
+
+		eb.Bind(bus.CodeChangedEvt, func(e bus.Event) {
+			code := e.Data.(Code)
+			n.SetCode(code)
+		})
+
+		eb.Bind(bus.NodeDataChangeEvt, func(e bus.Event) {
+			newData := e.Data.(bus.NodeDataChangeData)
+			n.SetData(newData.Data, newData.TargetId)
+		})
 	}
 }
 

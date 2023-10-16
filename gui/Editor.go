@@ -4,6 +4,7 @@ package gui
 
 import (
 	"distributed-sys-emulator/backend"
+	"distributed-sys-emulator/bus"
 	"fmt"
 	"os"
 
@@ -20,7 +21,7 @@ type Editor struct {
 // Declare conformance with the Component interface
 var _ Component = (*Editor)(nil)
 
-func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), network backend.Network) *Editor {
+func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), eb *bus.EventBus) *Editor {
 	input := widget.NewMultiLineEntry()
 	input.TextStyle.Monospace = true
 	input.Wrapping = fyne.TextTruncate
@@ -31,7 +32,9 @@ func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), network
 		input.SetText(string(b))
 	}
 
-	network.SetCode(backend.Code(b))
+	code := backend.Code(b)
+	e := bus.Event{Type: bus.CodeChangedEvt, Data: code}
+	eb.Publish(e)
 
 	editor := &Editor{input, path, false}
 	editor.OnChanged = func(_ string) {

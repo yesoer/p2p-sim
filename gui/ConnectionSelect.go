@@ -1,7 +1,7 @@
 package gui
 
 import (
-	"distributed-sys-emulator/backend"
+	"distributed-sys-emulator/bus"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -15,20 +15,26 @@ type ConnectionsSelect struct {
 // Declare conformance with the Component interface
 var _ Component = (*ConnectionsSelect)(nil)
 
-func NewConnectionsSelect(network backend.Network, canvasRaster Canvas) ConnectionsSelect {
+func NewConnectionsSelect(eb *bus.EventBus, canvasRaster Canvas, nodesCnt int) ConnectionsSelect {
 	// create a checkbox grid to manage nodes/connections
-	nodesCnt := network.GetNodeCnt()
 	connections := container.NewGridWithColumns(nodesCnt)
 
 	for row := 0; row < nodesCnt; row++ {
 		for col := 0; col < nodesCnt; col++ {
 			ccol, crow := col, row // copy for closure
 			checkboxHandler := func(b bool) {
+				data := bus.CheckboxPos{
+					Ccol: ccol,
+					Crow: crow,
+				}
+
 				// connect the two nodes
 				if b {
-					network.ConnectNodes(crow, ccol)
+					e := bus.Event{Type: bus.ConnectNodesEvt, Data: data}
+					eb.Publish(e)
 				} else {
-					network.DisconnectNodes(crow, ccol)
+					e := bus.Event{Type: bus.DisconnectNodesEvt, Data: data}
+					eb.Publish(e)
 				}
 
 				canvasRaster.Refresh()

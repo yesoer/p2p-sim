@@ -102,6 +102,7 @@ func (n *node) Run(signals chan Signal, codeC chan Code) {
 	}()
 
 	// code exec
+	// TODO : need a final termination option
 	go func() {
 		for {
 			// wait for start signal
