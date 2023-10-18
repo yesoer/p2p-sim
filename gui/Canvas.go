@@ -15,22 +15,78 @@ import (
 )
 
 type Canvas struct {
-	// *canvas.Raster
 	*fyne.Container
 }
 
 // Declare conformance with the Component interface
 var _ Component = (*Canvas)(nil)
 
-func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas, nodeCnt int) Canvas {
+func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
+	// keep node count up to date
 	var canvasRaster *canvas.Raster
-	points := pointsOnCircle(point{50, 50}, 35, nodeCnt)
-
+	var nodeCnt int
+	var points []point
+	var buttons []*widget.Button
 	canvasc := container.NewMax()
 	buttonsc := container.NewWithoutLayout()
 
-	buttons := make([]*widget.Button, len(points))
-	nodePopups := make([]*widget.PopUp, len(points))
+	eb.Bind(bus.NetworkNodeCntChangeEvt, func(e bus.Event) {
+		newNodeCnt := e.Data.(int)
+		nodeCnt = newNodeCnt
+
+		// recalc points
+		points = pointsOnCircle(point{50, 50}, 35, nodeCnt)
+
+		// recalc buttons
+		buttonsc.RemoveAll()
+		buttons = setupPopupButtons(buttonsc, eb, wcanvas, nodeCnt)
+
+		canvasRaster.Refresh()
+	})
+
+	// keep connections up to date
+	var connections [][]*backend.Connection
+	eb.Bind(bus.ConnectionChangeEvt, func(e bus.Event) {
+		newConnections, ok := e.Data.([][]*backend.Connection)
+		if ok {
+			connections = newConnections
+			canvasRaster.Refresh()
+		}
+	})
+
+	canvasRaster = canvas.NewRaster(func(w, h int) image.Image {
+		ratiow := float64(w) / 100
+		ratioh := float64(h) / 100
+
+		// move node popup buttons to node positions
+		for i, p := range points {
+			x := float32(ratiow*p.X) * .5
+			y := float32(ratioh*p.Y) * .5
+
+			popupButton := buttons[i]
+			popupButton.Move(fyne.NewPos(x+2, y+2))
+		}
+
+		// draw nodes and edges
+		return draw(w, h, points, &connections)
+	})
+
+	canvasc.Add(canvasRaster)
+	wrap := container.NewMax(canvasc, buttonsc)
+	return Canvas{wrap}
+}
+
+func (c Canvas) GetCanvasObj() fyne.CanvasObject {
+	return c.Container
+}
+
+func setupPopupButtons(buttonsc *fyne.Container,
+	eb *bus.EventBus,
+	wcanvas fyne.Canvas,
+	nodeCnt int) []*widget.Button {
+
+	buttons := make([]*widget.Button, nodeCnt)
+	nodePopups := make([]*widget.PopUp, nodeCnt)
 
 	buttonGen := func(i int) func() {
 		return func() {
@@ -82,40 +138,7 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas, nodeCnt int) Canvas {
 		buttons[i].Resize(buttons[i].MinSize())
 	}
 
-	// keep connections up to date
-	var connections [][]*backend.Connection
-	eb.Bind(bus.ConnectionChangeEvt, func(e bus.Event) {
-		newConnections, ok := e.Data.([][]*backend.Connection)
-		if ok {
-			connections = newConnections
-			canvasRaster.Refresh()
-		}
-	})
-
-	canvasRaster = canvas.NewRaster(func(w, h int) image.Image {
-		ratiow := float64(w) / 100
-		ratioh := float64(h) / 100
-
-		// move node popup buttons to node positions
-		for i, p := range points {
-			x := float32(ratiow*p.X) * .5
-			y := float32(ratioh*p.Y) * .5
-
-			popupButton := buttons[i]
-			popupButton.Move(fyne.NewPos(x+2, y+2))
-		}
-
-		// draw nodes and edges
-		return draw(w, h, points, &connections)
-	})
-
-	canvasc.Add(canvasRaster)
-	wrap := container.NewMax(canvasc, buttonsc)
-	return Canvas{wrap}
-}
-
-func (c Canvas) GetCanvasObj() fyne.CanvasObject {
-	return c.Container
+	return buttons
 }
 
 // gets width and height for the image, a network of nodes and the points that

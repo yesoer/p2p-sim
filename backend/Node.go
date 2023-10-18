@@ -26,9 +26,9 @@ type Connection struct {
 }
 
 type node struct {
-	connections []*Connection
-	id          int         // TODO : still don't know about this, keep ids implicit or explicit everywhere
-	data        interface{} // json data to expose to lua
+	connections []*Connection // TODO : I don't like the way these work
+	id          int           // TODO : still don't know about this, keep ids implicit or explicit everywhere
+	data        interface{}   // json data to expose to lua
 }
 
 func NewNode(id int) Node {
@@ -104,48 +104,50 @@ func (n *node) Run(signals chan Signal, codeC chan Code) {
 	// code exec
 	// TODO : need a final termination option
 	go func() {
-		for {
-			// wait for start signal
-			// TODO : outsource to utils ?
-			for sig := <-signals; sig != START; sig = <-signals {
-				// await START
+		var cancel context.CancelFunc
+		var ctx context.Context
+		exec := func() {
+			i := interp.New(interp.Options{})
+
+			i.Use(stdlib.Symbols)
+
+			_, err := i.Eval(string(code))
+			if err != nil {
+				panic(err)
 			}
 
-			var cancel context.CancelFunc
-			var ctx context.Context
+			v, err := i.Eval("Run")
+			if err != nil {
+				fmt.Println("Error ", err)
+				// TODO : should 'continue' outer loop aswell
+				return
+			}
 
-			// execute code
-			go func() {
-				i := interp.New(interp.Options{})
+			// make node specific data accessible
+			ctx, cancel = context.WithCancel(context.WithValue(context.Background(), "node", n.data))
 
-				i.Use(stdlib.Symbols)
+			// TODO : accept empty interface as return/do we even need returns ?
+			userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) string)
+			_ = userF(ctx, n.Send, n.Await)
+		}
 
-				_, err := i.Eval(string(code))
-				if err != nil {
-					panic(err)
+		// wait for other signals
+		running := false
+		for sig := range signals {
+			switch sig {
+			case START:
+				if !running {
+					exec()
 				}
-
-				v, err := i.Eval("Run")
-				if err != nil {
-					fmt.Println("Error ", err)
-					// TODO : should 'continue' outer loop aswell
-					return
-				}
-
-				// make node specific data accessible
-				ctx, cancel = context.WithCancel(context.WithValue(context.Background(), "node", n.data))
-
-				// TODO : accept empty interface as return/do we even need returns ?
-				userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) string)
-				_ = userF(ctx, n.Send, n.Await)
-			}()
-
-			// wait for other signals
-			for sig := range signals {
-				if sig == STOP {
+			case STOP:
+				if running {
 					// kill exec of userF and return to start of loop
 					cancel()
-					break
+				}
+			case TERM:
+				if running {
+					cancel()
+					return
 				}
 			}
 		}

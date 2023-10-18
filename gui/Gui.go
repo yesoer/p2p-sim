@@ -16,22 +16,25 @@ type Component interface {
 	GetCanvasObj() fyne.CanvasObject
 }
 
-func RunGUI(nodeCnt int, wsize fyne.Size, eb *bus.EventBus) {
+var InitialWindowSize = fyne.NewSize(1000, 800)
+
+func RunGUI(eb *bus.EventBus) {
+
 	// basics
 	a := app.New()
 	window := a.NewWindow("Distributed System Emulator")
 	window.SetMaster()
-	window.Resize(wsize)
+	window.Resize(InitialWindowSize)
 	window.CenterOnScreen()
 
 	//-------------------------------------------------------
 	// CREATE COMPONENTS
 
 	// canvas
-	canvasRaster := NewCanvas(eb, window.Canvas(), nodeCnt)
+	canvasRaster := NewCanvas(eb, window.Canvas())
 
 	// connections
-	connections := NewConnectionsSelect(eb, nodeCnt)
+	connections := NewConnectionsSelect(eb)
 
 	// create a pane to control execution
 	execution := NewControlBar(eb)

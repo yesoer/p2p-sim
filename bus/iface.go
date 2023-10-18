@@ -30,8 +30,12 @@ var StopEvt EventType = "stop"
 // on code changes by the editor
 var CodeChangedEvt EventType = "code-changed"
 
+var GUINodeCntChangeEvt EventType = "gui-node-count-change"
+
 //---------------------
 // PUBLISHED BY BACKEND
 
 // on (dis-)connects
 var ConnectionChangeEvt EventType = "connection-changed"
+
+var NetworkNodeCntChangeEvt EventType = "network-node-count-change"
