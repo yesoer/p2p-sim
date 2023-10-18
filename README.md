@@ -15,8 +15,4 @@ go build main.go
 ./main
 ```
 
-### Flags
 
-| Flag | Description | Default |
-|------|-------------|---------|
-|-network-size | define the number of nodes | 2 |
