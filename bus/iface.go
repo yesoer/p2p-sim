@@ -32,6 +32,13 @@ var CodeChangedEvt EventType = "code-changed"
 
 var GUINodeCntChangeEvt EventType = "gui-node-count-change"
 
+var OutputChanged EventType = "output-changed"
+
+type Output struct {
+	Str    string
+	NodeId int
+}
+
 //---------------------
 // PUBLISHED BY BACKEND
 
