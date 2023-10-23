@@ -1,8 +1,12 @@
 package backend
 
 import (
+	"bytes"
+	"distributed-sys-emulator/bus"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -15,7 +19,7 @@ type Node interface {
 	ConnectTo(peerId int)
 	DisconnectFrom(peerId int)
 	GetConnections() []*Connection
-	Run(signals chan Signal, codeC chan Code)
+	Run(eb *bus.EventBus, signals chan Signal)
 	SetData(json interface{})
 	GetData() interface{}
 }
@@ -91,25 +95,25 @@ func (n *node) Await(cnt int) int {
 }
 
 // a node will run continuously, the current state can be changed using signals
-func (n *node) Run(signals chan Signal, codeC chan Code) {
+func (n *node) Run(eb *bus.EventBus, signals chan Signal) {
 	code := Code("")
 
-	// continuously check for code updates
-	go func() {
-		for {
-			code = <-codeC
-		}
-	}()
+	eb.Bind(bus.CodeChangedEvt, func(e bus.Event) {
+		code = e.Data.(Code)
+	})
 
 	// code exec
-	// TODO : need a final termination option
 	go func() {
 		var cancel context.CancelFunc
-		var ctx context.Context
+		ctx, cancel := context.WithCancel(context.Background())
+		var output string
 		exec := func() {
-			i := interp.New(interp.Options{})
+			var stdout, stderr bytes.Buffer
+			i := interp.New(interp.Options{Stdout: &stdout, Stderr: &stderr})
 
-			i.Use(stdlib.Symbols)
+			if err := i.Use(stdlib.Symbols); err != nil {
+				panic(err)
+			}
 
 			_, err := i.Eval(string(code))
 			if err != nil {
@@ -119,40 +123,53 @@ func (n *node) Run(signals chan Signal, codeC chan Code) {
 			v, err := i.Eval("Run")
 			if err != nil {
 				fmt.Println("Error ", err)
-				// TODO : should 'continue' outer loop aswell
 				return
 			}
 
-			// make node specific data accessible
-			ctx, cancel = context.WithCancel(context.WithValue(context.Background(), "node", n.data))
-
 			// TODO : accept empty interface as return/do we even need returns ?
 			userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) string)
-			_ = userF(ctx, n.Send, n.Await)
+
+			// make node specific data accessible
+			ctx = context.WithValue(ctx, "node", n.data)
+
+			// Execute the provided function
+			userF(ctx, n.Send, n.Await)
+
+			output = stdout.String()
 		}
 
 		// wait for other signals
 		running := false
 		for sig := range signals {
+			log.Println("Node ", n.id, " received signal ", sig)
 			switch sig {
 			case START:
 				if !running {
-					exec()
+					go exec()
+					running = true
 				}
 			case STOP:
 				if running {
 					// kill exec of userF and return to start of loop
 					cancel()
+					running = false
+					// TODO : this waiting for userF to cancel sucks
+					time.Sleep(time.Second * 10)
+					data := bus.Output{Str: output, NodeId: n.id}
+					e := bus.Event{Type: bus.OutputChanged, Data: data}
+					eb.Publish(e)
 				}
 			case TERM:
 				if running {
 					cancel()
-					return
 				}
+				return
 			}
 		}
 	}()
 }
+
+type userFunc func(context.Context, func(targetId int, data any) int, func(int) int) string
 
 // make a one way connection from  n to peer, meaning peer adds n's output as
 // input
