@@ -1,7 +1,7 @@
 # P2PSim
- A simplified environment to test, develop and analyze peer 2 peer systems/algorithms
+ A simplified environment to test, develop and analyze peer 2 peer systems/algorithms.
 
- Under active development.
+ Not production ready but under active development.
 
 ## Build
 
@@ -17,7 +17,11 @@ go build main.go
 
 ## Contribution
 
-**Branch naming** should look like this
+When confused, no worries, just publish what you have. 
+A not perfectly structured contribution is still far better than nothing.
+
+### Branch Naming 
+Branch names should look like this
 `<type>/<name>`
 where words in "name" are separated by '-'
 and type is one of the following (extend if needed)
@@ -30,6 +34,7 @@ and type is one of the following (extend if needed)
 | fix  | bug fixes        |
 | test | testing environments/throwaway branches |
 
+### Commit Messages
 More specific distinction happens in **commit messages** which should be structured
 as follows :
 
@@ -37,7 +42,7 @@ as follows :
 <type>(<scope>): <subject>
 ```
 
-**type**
+- **type**
 Must be one of the following:
 
 * **feat**: A new feature
@@ -51,12 +56,15 @@ Must be one of the following:
 * **chore**: Changes to the build process or auxiliary tools and libraries such as documentation
   generation
 
-**scope** means the part of the software, which usually will be best identified by the package name.
+- **scope** refers to the part of the software, which usually will be best identified by the package name.
 
-**subject** gives a short idea of what was done/what the intend of the commit is.
+- **subject** gives a short idea of what was done/what the intend of the commit is.
 
 As for the **commit body** there is no mandatory structure as of now.
+
+### Other Tips/Notes on Contributing
 
 **Issues and Pull Requests** for now will not have any set guidelines.
 
 As a rule of thumb for **merging** make sure to rebase before doing so.
+
