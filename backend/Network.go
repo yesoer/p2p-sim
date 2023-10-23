@@ -3,7 +3,6 @@ package backend
 import (
 	"distributed-sys-emulator/bus"
 	"log"
-	"math"
 )
 
 type Signal int
@@ -25,7 +24,6 @@ type Network interface {
 	GetNodeCnt() int
 	ConnectNodes(fromId, toId int)
 	DisconnectNodes(fromId, toId int)
-	SetCode(code Code)
 	SetData(json interface{}, toId int)
 	GetData(toId int) interface{}
 }
@@ -33,16 +31,14 @@ type Network interface {
 type network struct {
 	Nodes   []Node
 	Signals chan Signal
-	Code    chan Code
 	NodeCnt int
 }
 
 func NewNetwork(eb *bus.EventBus) Network {
 	var nodes []Node
 	signals := make(chan Signal, 10)
-	code := make(chan Code, 10)
 	cnt := InitialNodeCnt
-	return &network{nodes, signals, code, cnt}
+	return &network{nodes, signals, cnt}
 }
 
 func (n *network) setNodeCnt(cnt int) {
@@ -57,12 +53,6 @@ func (n *network) GetData(toId int) interface{} {
 	return n.Nodes[toId].GetData()
 }
 
-func (n *network) SetCode(code Code) {
-	for range n.Nodes {
-		n.Code <- code
-	}
-}
-
 func (n *network) ConnectNodes(fromId, toId int) {
 	n.Nodes[fromId].ConnectTo(toId)
 }
@@ -71,13 +61,18 @@ func (n *network) DisconnectNodes(fromId, toId int) {
 	n.Nodes[fromId].DisconnectFrom(toId)
 }
 
-func (n *network) Init(eb *bus.EventBus) {
-	cnt := int(math.Max(float64(InitialNodeCnt), float64(n.NodeCnt)))
+func (n *network) setAndRunNodes(eb *bus.EventBus) {
+	cnt := n.NodeCnt
+	n.Nodes = make([]Node, cnt)
 	for i := 0; i < cnt; i++ {
 		newNode := NewNode(i)
-		newNode.Run(n.Signals, n.Code)
-		n.Nodes = append(n.Nodes, newNode)
+		newNode.Run(eb, n.Signals)
+		n.Nodes[i] = newNode
 	}
+}
+
+func (n *network) Init(eb *bus.EventBus) {
+	n.setAndRunNodes(eb)
 
 	// bind node handlers to the various relevant events
 	// TODO : I think some, if not all of these should be outside the loop
@@ -105,11 +100,6 @@ func (n *network) Init(eb *bus.EventBus) {
 		eb.Publish(newEvent)
 	})
 
-	eb.Bind(bus.CodeChangedEvt, func(e bus.Event) {
-		code := e.Data.(Code)
-		n.SetCode(code)
-	})
-
 	eb.Bind(bus.NodeDataChangeEvt, func(e bus.Event) {
 		newData := e.Data.(bus.NodeDataChangeData)
 		n.SetData(newData.Data, newData.TargetId)
@@ -121,32 +111,43 @@ func (n *network) Init(eb *bus.EventBus) {
 		n.setNodeCnt(newCnt)
 
 		// store connections
+		// TODO : as mentioned on the nodes struct, connections are poorly designed,
+		// when reworking try to create a design that avoids this reset :
 		networkC := n.GetConnections()
 		if newCnt < len(networkC) {
 			networkC = networkC[:newCnt]
+			for src, nodeC := range networkC {
+				var newNodeC []*Connection
+				for _, c := range nodeC {
+					if c.Target < newCnt {
+						newNodeC = append(newNodeC, c)
+					}
+				}
+				networkC[src] = newNodeC
+			}
 		} else {
 			for i := 0; i < newCnt-len(networkC); i++ {
 				newSlice := make([]*Connection, 0)
 				networkC = append(networkC, newSlice)
 			}
 		}
+		connEvt := bus.Event{Type: bus.ConnectionChangeEvt, Data: networkC}
+		eb.Publish(connEvt)
 
-		// send terminate signal to all nodes
+		// restart nodes
 		n.Emit(TERM)
-
-		// init networks, starting the nodes
-		n.Init(eb)
+		n.setAndRunNodes(eb)
 
 		// set connections
 		for src, nodeC := range networkC {
 			for _, c := range nodeC {
-				n.ConnectNodes(src, c.Target)
+				n.ConnectNodes(c.Target, src)
 			}
 		}
 
 		// send NetworkNodeCntChangeEvt
-		evt := bus.Event{Type: bus.NetworkNodeCntChangeEvt, Data: newCnt}
-		eb.Publish(evt)
+		sizeEvt := bus.Event{Type: bus.NetworkNodeCntChangeEvt, Data: newCnt}
+		eb.Publish(sizeEvt)
 	})
 
 	// publish the initial node count to the ui
