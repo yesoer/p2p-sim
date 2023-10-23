@@ -27,11 +27,13 @@ func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), eb *bus
 	input.Wrapping = fyne.TextTruncate
 	input.PlaceHolder = "Type"
 
+	// read code from disk
 	b, err := os.ReadFile(path)
 	if err == nil {
 		input.SetText(string(b))
 	}
 
+	// publish code to backend
 	code := backend.Code(b)
 	e := bus.Event{Type: bus.CodeChangedEvt, Data: code}
 	eb.Publish(e)
