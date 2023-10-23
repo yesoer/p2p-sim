@@ -52,6 +52,8 @@ func RunGUI(eb *bus.EventBus) {
 	}
 	editor := NewTextEditor(path, window, onSubmitted, eb)
 
+	console := NewConsole(eb)
+
 	//-------------------------------------------------------
 	// EMBED COMPONENTS IN LAYOUT
 
@@ -73,10 +75,11 @@ func RunGUI(eb *bus.EventBus) {
 		editor.Save()
 	})
 
-	// Layout : resizable middle split with the editor left and everything else
-	// on the right
+	// Layout : resizable middle split with the editor left, the output console
+	// below it and everything else on the right
 	view := container.NewBorder(execution.GetCanvasObj(), nil, nil, nil, canvasRaster.GetCanvasObj())
-	split := container.NewHSplit(editor.GetCanvasObj(), view)
+	devenv := container.NewBorder(nil, console.GetCanvasObj(), nil, nil, editor.GetCanvasObj())
+	split := container.NewHSplit(devenv, view)
 
 	window.SetContent(split)
 	window.ShowAndRun()
