@@ -68,3 +68,7 @@ As for the **commit body** there is no mandatory structure as of now.
 
 As a rule of thumb for **merging** make sure to rebase before doing so.
 
+When developing or testing you should consider using the -race flag to make sure
+your contribution is fine.
+Eventhough your code might seem to run flawlessly, it might be buggy.
+
