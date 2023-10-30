@@ -64,6 +64,9 @@ func (bus *EventBus) Bind(etype EventType, callback Callback) {
 }
 
 // TODO : reuse waitlist channels
+// TODO : provide an AwaitPublish and AwaitBind which don't use go routines,
+//
+//	these should not be executed nested in a publish
 func (bus *EventBus) Publish(e Event) {
 	// wait for previous publish to finish
 	bus.WaitListMu.Lock()
@@ -81,7 +84,8 @@ func (bus *EventBus) Publish(e Event) {
 			<-ch
 		}
 
-		// execute callbacks
+		// execute all callbacks for this event before processing the next,
+		// keeping the order intact
 		bus.Mu.Lock()
 		if current, ok := bus.Data[e.Type]; !ok {
 			bus.Data[e.Type] = EventBusData{nil, &e}
