@@ -30,9 +30,6 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
 	canvasc := container.NewMax()
 	buttonsc := container.NewWithoutLayout()
 
-	// TODO : sometimes it might happen that changes to connections etc
-	// have not been processed before the node count change, maybe eventbus needs
-	// to have a clear order
 	eb.Bind(bus.NetworkNodeCntChangeEvt, func(e bus.Event) {
 		newNodeCnt := e.Data.(int)
 		nodeCnt = newNodeCnt
