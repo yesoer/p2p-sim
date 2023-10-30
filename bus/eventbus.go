@@ -43,24 +43,27 @@ type Callback func(e Event)
 // TODO : add options to allow for only once or make that a different method ?
 // TODO : double check that this is not called in forever loops or something like that
 func (bus *EventBus) Bind(etype EventType, callback Callback) {
-	bus.Mu.Lock()
-	current, ok := bus.Data[etype]
-	if !ok {
-		// first bind init EventBusData
-		callbacks := []Callback{callback}
-		bus.Data[etype] = EventBusData{callbacks, nil}
-	} else {
-		newCallbacks := append(current.Callbacks, callback)
-		bus.Data[etype] = EventBusData{newCallbacks, current.Recent}
-	}
+	go func() {
+		bus.Mu.Lock()
+		current, ok := bus.Data[etype]
+		if !ok {
+			// first bind init EventBusData
+			callbacks := []Callback{callback}
+			bus.Data[etype] = EventBusData{callbacks, nil}
+		} else {
+			newCallbacks := append(current.Callbacks, callback)
+			bus.Data[etype] = EventBusData{newCallbacks, current.Recent}
+		}
 
-	if current.Recent != nil {
-		callback(*current.Recent)
-	}
-	log.Println("Bound func to event type : ", etype)
-	bus.Mu.Unlock()
+		if current.Recent != nil {
+			callback(*current.Recent)
+		}
+		log.Println("Bound func to event type : ", etype)
+		bus.Mu.Unlock()
+	}()
 }
 
+// TODO : reuse waitlist channels
 func (bus *EventBus) Publish(e Event) {
 	// wait for previous publish to finish
 	bus.WaitListMu.Lock()
@@ -92,7 +95,6 @@ func (bus *EventBus) Publish(e Event) {
 				cb(e)
 			}
 		}
-		log.Println("Published event : ", e)
 		bus.Mu.Unlock()
 
 		// continue with the next publish
