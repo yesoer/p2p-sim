@@ -48,13 +48,17 @@ func TestEventBus_Publish_Stress(t *testing.T) {
 		mu.Unlock()
 	})
 
+	// await binds
+	time.Sleep(time.Second * 1)
+
 	for i := 0; i < testCnt; i++ {
 		e := Event{countEvt, i}
 		bus.Publish(e)
 	}
 
-	// sleep since publish executes as go rountine
+	// await publishes
 	time.Sleep(time.Second * 1)
+
 	mu.Lock()
 	fmt.Println("counter ", counter)
 	if counter != testCnt {
@@ -110,9 +114,11 @@ func TestEventBus_Publish_Order(t *testing.T) {
 		})
 	}
 
+	// await binds
+	time.Sleep(time.Second)
+
 	for i, typ := range types {
 		e := Event{typ, i}
-		// time.Sleep(time.Millisecond * 100)
 		bus.Publish(e)
 	}
 
