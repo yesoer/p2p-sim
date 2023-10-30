@@ -112,6 +112,8 @@ func TestEventBus_Bind_Nested(t *testing.T) {
 func TestEventBus_Publish_Order(t *testing.T) {
 	// check whether order is preserved (across events, not for a
 	//	singular event)
+
+	// create n different types of events
 	evtTypeCnt := 10
 	var types []EventType
 	for i := 0; i < evtTypeCnt; i++ {
@@ -120,6 +122,7 @@ func TestEventBus_Publish_Order(t *testing.T) {
 		types = append(types, typ)
 	}
 
+	// bind to all event types
 	cnt := 0
 	res := struct {
 		Fail bool
@@ -128,6 +131,7 @@ func TestEventBus_Publish_Order(t *testing.T) {
 	}{false, -1, -1}
 	cntMu := sync.Mutex{}
 	for _, typ := range types {
+		// bind should check whether the received event matches what we expect
 		bus.Bind(typ, func(e Event) {
 			cntMu.Lock()
 			if cnt != e.Data.(int) {
@@ -143,6 +147,7 @@ func TestEventBus_Publish_Order(t *testing.T) {
 	// await binds
 	time.Sleep(time.Second)
 
+	// publish events in order
 	for i, typ := range types {
 		e := Event{typ, i}
 		bus.Publish(e)
