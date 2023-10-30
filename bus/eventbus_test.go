@@ -83,6 +83,32 @@ func TestEventBus_Publish_Nested(t *testing.T) {
 	bus.Publish(e)
 }
 
+func TestEventBus_Bind_Nested(t *testing.T) {
+	nestedBindEvt := EventType("nested-bind")
+	wrapperBindEvt := EventType("wrapper-bind")
+
+	nestedBindComplete := make(chan bool)
+	bus.Bind(wrapperBindEvt, func(e Event) {
+		bus.Bind(nestedBindEvt, func(e Event) {
+		})
+		nestedBindComplete <- true
+	})
+
+	e := Event{wrapperBindEvt, nil}
+
+	go func() {
+		bus.Publish(e)
+	}()
+
+	// wait for the nested Bind to complete or for a timeout to occur
+	select {
+	case <-time.After(2 * time.Second):
+		t.Error("Deadlock between Publish and nested Bind")
+	case <-nestedBindComplete:
+		return
+	}
+}
+
 func TestEventBus_Publish_Order(t *testing.T) {
 	// check whether order is preserved (across events, not for a
 	//	singular event)
