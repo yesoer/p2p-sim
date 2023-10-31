@@ -94,6 +94,7 @@ func (bus *EventBus) Publish(e Event) {
 			bus.Data[e.Type] = current
 		}
 
+		log.Println("Publish event ", e)
 		if current := bus.Data[e.Type]; current.Callbacks != nil {
 			for _, cb := range current.Callbacks {
 				cb(e)
