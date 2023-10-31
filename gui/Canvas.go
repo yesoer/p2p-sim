@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -30,7 +31,10 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
 	canvasc := container.NewMax()
 	buttonsc := container.NewWithoutLayout()
 
+	syncMu := sync.Mutex{}
+
 	eb.Bind(bus.NetworkNodeCntChangeEvt, func(e bus.Event) {
+		syncMu.Lock()
 		newNodeCnt := e.Data.(int)
 		nodeCnt = newNodeCnt
 
@@ -40,6 +44,7 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
 		// recalc buttons
 		buttonsc.RemoveAll()
 		buttons = setupPopupButtons(buttonsc, eb, wcanvas, nodeCnt)
+		syncMu.Unlock()
 
 		canvasRaster.Refresh()
 	})
@@ -59,6 +64,7 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
 		ratioh := float64(h) / 100
 
 		// move node popup buttons to node positions
+		syncMu.Lock()
 		for i, p := range points {
 			x := float32(ratiow*p.X) * .5
 			y := float32(ratioh*p.Y) * .5
@@ -68,7 +74,10 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
 		}
 
 		// draw nodes and edges
-		return draw(w, h, points, &connections)
+		res := draw(w, h, points, &connections)
+		syncMu.Unlock()
+
+		return res
 	})
 
 	canvasc.Add(canvasRaster)
