@@ -1,48 +1,58 @@
 package bus
 
-// To avoid import cycles this file defines all events published aswell as their
-// data structures.
+/* To avoid import cycles this file defines all application specific
+* event types that may be published, aswell as their embedded data structures.
+* Helpful guidelines for naming :
+* - Event types should usually be named direction agnostic, so no prefixes like
+*   "GUINodeCntChangeEvt". E.g. if they reflect the change of some GUI input
+*   name them something like "NodeCountChangeEvt" and if its published by the
+*   network, "ResizedNetworkEvt"
+* - They get the postfix "Evt" to emphasize their assoziation to the bus.
+* - The data structures names should describe the abstract information they carry.
+    They do not need to be named with relation to their events or the entire
+	eventbus because they might be useful in other, unrelated places aswell.
+*/
 
-//---------------------
-// PUBLISHED BY GUI
+const NodeDataChangeEvt EventType = "node-data-change"
 
-// when node specific data has been changed
-var NodeDataChangeEvt EventType = "node-data-changed"
-
-type NodeDataChangeData struct {
+type NodeData struct {
 	TargetId int
 	Data     interface{}
 }
 
-// on (dis-)connects
-var ConnectNodesEvt EventType = "connect-nodes"
-var DisconnectNodesEvt EventType = "disconnect-nodes"
+const ConnectNodesEvt EventType = "connect-nodes"
+const DisconnectNodesEvt EventType = "disconnect-nodes"
 
-type CheckboxPos struct {
-	Ccol int
-	Crow int
+type Connection struct {
+	From int
+	To   int
 }
 
-// on signals
-var StartEvt EventType = "start"
-var StopEvt EventType = "stop"
+const StartNodesEvt EventType = "start-nodes"
+const StopNodesEvt EventType = "stop-nodes"
 
-// on code changes by the editor
-var CodeChangedEvt EventType = "code-changed"
+const CodeChangeEvt EventType = "code-change"
 
-var GUINodeCntChangeEvt EventType = "gui-node-count-change"
+type Code string
 
-var OutputChanged EventType = "output-changed"
+const NodeCntChangeEvt EventType = "node-count-change"
 
-type Output struct {
+type NodeCnt int
+
+const NetworkConnectionsEvt EventType = "network-connections"
+
+type Connections []Connection
+
+const NetworkResizeEvt EventType = "network-resize"
+
+type NetworkResize struct {
+	Connections
+	Cnt int
+}
+
+const NodeOutputLogEvt EventType = "node-output-log"
+
+type NodeLog struct {
 	Str    string
 	NodeId int
 }
-
-//---------------------
-// PUBLISHED BY BACKEND
-
-// on (dis-)connects
-var ConnectionChangeEvt EventType = "connection-changed"
-
-var NetworkNodeCntChangeEvt EventType = "network-node-count-change"
