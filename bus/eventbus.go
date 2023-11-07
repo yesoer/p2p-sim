@@ -2,6 +2,7 @@ package bus
 
 import (
 	"log"
+	"runtime"
 	"sync"
 )
 
@@ -94,7 +95,8 @@ func (bus *EventBus) Publish(e Event) {
 			bus.Data[e.Type] = current
 		}
 
-		log.Println("Publish event ", e)
+		prevFile, line := getPreviousCallerFile()
+		log.Println("Publish event ", e, " from ", prevFile, ":", line)
 		if current := bus.Data[e.Type]; current.Callbacks != nil {
 			for _, cb := range current.Callbacks {
 				cb(e)
@@ -113,4 +115,23 @@ func (bus *EventBus) Publish(e Event) {
 		nextch <- true
 		bus.WaitListMu.Unlock()
 	}()
+}
+
+func getPreviousCallerFile() (string, int) {
+	pc := make([]uintptr, 10) // Adjust the size as needed
+	n := runtime.Callers(0, pc)
+	frames := runtime.CallersFrames(pc[:n])
+
+	// Skip the first frame, which is the getPreviousCallerFile function itself
+	_, more := frames.Next()
+	if !more {
+		return "", 0
+	}
+
+	prevFrame, more := frames.Next()
+	if !more {
+		return "", 0
+	}
+
+	return prevFrame.File, prevFrame.Line
 }
