@@ -30,6 +30,28 @@ func TestNewEventbus_Basic(t *testing.T) {
 	bus.Publish(e)
 }
 
+func TestEventBus_Wrong_Publish_Arg_Type(t *testing.T) {
+	wrongArgEvt := EventType("wrong-pub-arg")
+
+	bus.AwaitBind(wrongArgEvt, func(d int) {})
+
+	res := bus.AwaitPublish(Event{wrongArgEvt, "test"})
+	if res != false {
+		t.Errorf("Mismatching data types should have failed but not with a panic")
+	}
+}
+
+func TestEventBus_Wrong_Bind_Arg_Type(t *testing.T) {
+	wrongArgEvt := EventType("wrong-bind-arg")
+
+	bus.AwaitPublish(Event{wrongArgEvt, "test"})
+
+	res := bus.AwaitBind(wrongArgEvt, func(d int) {})
+	if res != false {
+		t.Errorf("Mismatching data types should have failed but not with a panic")
+	}
+}
+
 func TestEventBus_Publish_Stress(t *testing.T) {
 	countEvt := EventType("stress-test")
 	counter := 0
