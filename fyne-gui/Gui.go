@@ -1,8 +1,8 @@
-package gui
+package fynegui
 
 import (
-	"distributed-sys-emulator/backend"
 	"distributed-sys-emulator/bus"
+	"distributed-sys-emulator/core"
 	"fmt"
 
 	"fyne.io/fyne/v2"
@@ -18,7 +18,7 @@ type Component interface {
 
 var InitialWindowSize = fyne.NewSize(1000, 800)
 
-func RunGUI(eb *bus.EventBus) {
+func RunGUI(eb bus.EventBus) {
 
 	// basics
 	a := app.New()
@@ -46,8 +46,8 @@ func RunGUI(eb *bus.EventBus) {
 	// TODO : could move this to editor.go
 	onSubmitted := func(e *Editor) {
 		text := e.Content()
-		code := backend.Code(text)
-		evt := bus.Event{Type: bus.CodeChangedEvt, Data: code}
+		code := core.Code(text)
+		evt := bus.Event{Type: bus.CodeChangeEvt, Data: code}
 		eb.Publish(evt)
 	}
 	editor := NewTextEditor(path, window, onSubmitted, eb)

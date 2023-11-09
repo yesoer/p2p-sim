@@ -1,4 +1,4 @@
-package gui
+package fynegui
 
 import (
 	"distributed-sys-emulator/bus"
@@ -10,43 +10,43 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// Declare conformance with the Component interface
+var _ Component = (*ControlBar)(nil)
+
 type ControlBar struct {
 	*fyne.Container
 }
 
-// Declare conformance with the Component interface
-var _ Component = (*ControlBar)(nil)
-
-func NewControlBar(eb *bus.EventBus) ControlBar {
+func NewControlBar(eb bus.EventBus) *ControlBar {
 	nodeCntEntry := widget.NewEntry()
 	nodeCntEntry.OnChanged = func(s string) {
 		nodeCntEntry.Text = extractWholeNumbers(s)
 	}
 	nodeCntEntry.OnSubmitted = func(s string) {
 		nodeCnt, _ := strconv.Atoi(s)
-		e := bus.Event{Type: bus.GUINodeCntChangeEvt, Data: nodeCnt}
+		e := bus.Event{Type: bus.NodeCntChangeEvt, Data: nodeCnt}
 		eb.Publish(e)
 	}
 
-	eb.Bind(bus.NetworkNodeCntChangeEvt, func(e bus.Event) {
-		nodeCnt := e.Data.(int)
+	eb.Bind(bus.NetworkResizeEvt, func(resizeData bus.NetworkResize) {
+		nodeCnt := resizeData.Cnt
 		nodeCntEntry.Text = strconv.Itoa(nodeCnt)
 		nodeCntEntry.Refresh()
 	})
 
 	execution := container.NewHBox(
 		widget.NewButton("Start", func() {
-			e := bus.Event{Type: bus.StartEvt, Data: nil}
+			e := bus.Event{Type: bus.StartNodesEvt, Data: nil}
 			eb.Publish(e)
 		}),
 		widget.NewButton("Stop", func() {
-			e := bus.Event{Type: bus.StopEvt, Data: nil}
+			e := bus.Event{Type: bus.StopNodesEvt, Data: nil}
 			eb.Publish(e)
 		}),
 		nodeCntEntry,
 	)
 
-	return ControlBar{execution}
+	return &ControlBar{execution}
 }
 
 func extractWholeNumbers(input string) string {

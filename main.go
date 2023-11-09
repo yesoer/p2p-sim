@@ -1,9 +1,9 @@
 package main
 
 import (
-	"distributed-sys-emulator/backend"
 	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/gui"
+	"distributed-sys-emulator/core"
+	fynegui "distributed-sys-emulator/fyne-gui"
 	"flag"
 )
 
@@ -12,8 +12,8 @@ func main() {
 
 	eb := bus.NewEventbus()
 
-	network := backend.NewNetwork(eb)
+	network := core.NewNetwork(eb)
 	network.Init(eb)
 
-	gui.RunGUI(eb)
+	fynegui.RunGUI(eb)
 }

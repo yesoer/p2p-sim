@@ -1,4 +1,4 @@
-package gui
+package fynegui
 
 import (
 	"fyne.io/fyne/v2"
@@ -7,13 +7,18 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func NewModal(content fyne.CanvasObject, canvas fyne.Canvas) *widget.PopUp {
-	var modal *widget.PopUp
+type Modal struct {
+	*widget.PopUp
+}
+
+func NewModal(content fyne.CanvasObject, canvas fyne.Canvas) Modal {
+	var popup *widget.PopUp
 	closeBtn := widget.NewButton("X", func() {
-		modal.Hide()
+		popup.Hide()
 	})
 	topBar := container.NewHBox(closeBtn, layout.NewSpacer())
 	wrapper := container.NewVBox(topBar, content)
-	modal = widget.NewModalPopUp(wrapper, canvas)
-	return modal
+	popup = widget.NewModalPopUp(wrapper, canvas)
+
+	return Modal{popup}
 }

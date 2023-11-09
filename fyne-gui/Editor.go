@@ -1,10 +1,10 @@
-package gui
+package fynegui
 
 // NOTE : extended (text-)editor from github.com/fyne-io/defyne/
 
 import (
-	"distributed-sys-emulator/backend"
 	"distributed-sys-emulator/bus"
+	"distributed-sys-emulator/core"
 	"fmt"
 	"os"
 
@@ -12,16 +12,16 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// Declare conformance with the Component interface
+var _ Component = (*Editor)(nil)
+
 type Editor struct {
 	*widget.Entry
 	path   string
 	edited bool
 }
 
-// Declare conformance with the Component interface
-var _ Component = (*Editor)(nil)
-
-func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), eb *bus.EventBus) *Editor {
+func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), eb bus.EventBus) *Editor {
 	input := widget.NewMultiLineEntry()
 	input.TextStyle.Monospace = true
 	input.Wrapping = fyne.TextTruncate
@@ -33,17 +33,18 @@ func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), eb *bus
 		input.SetText(string(b))
 	}
 
-	// publish code to backend
-	code := backend.Code(b)
-	e := bus.Event{Type: bus.CodeChangedEvt, Data: code}
+	// publish code to core
+	code := core.Code(b)
+	e := bus.Event{Type: bus.CodeChangeEvt, Data: code}
 	eb.Publish(e)
 
-	editor := &Editor{input, path, false}
+	editor := Editor{input, path, false}
 	editor.OnChanged = func(_ string) {
-		changeCB(editor)
+		changeCB(&editor)
 		editor.edited = true
 	}
-	return editor
+
+	return &editor
 }
 
 func (e *Editor) GetCanvasObj() fyne.CanvasObject {
