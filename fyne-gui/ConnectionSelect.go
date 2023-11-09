@@ -1,29 +1,29 @@
-package gui
+package fynegui
 
 import (
-	"distributed-sys-emulator/backend"
 	"distributed-sys-emulator/bus"
+	"distributed-sys-emulator/core"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
+// Declare conformance with the Component interface
+var _ Component = (*ConnectionsSelect)(nil)
+
 type ConnectionsSelect struct {
 	*fyne.Container
 }
 
-// Declare conformance with the Component interface
-var _ Component = (*ConnectionsSelect)(nil)
-
-func NewConnectionsSelect(eb *bus.EventBus) ConnectionsSelect {
+func NewConnectionsSelect(eb bus.EventBus) *ConnectionsSelect {
 	// keep node count up to date
 	var nodeCnt int
 	connectionsWrap := container.NewHBox()
 
-	var connections [][]*backend.Connection
-	eb.Bind(bus.ConnectionChangeEvt, func(e bus.Event) {
-		connections = e.Data.([][]*backend.Connection)
+	var connections [][]*core.Connection
+	eb.Bind(bus.NetworkConnectionsEvt, func(newConnections [][]*core.Connection) {
+		connections = newConnections
 	})
 
 	addCheckboxes := func() {
@@ -37,7 +37,7 @@ func NewConnectionsSelect(eb *bus.EventBus) ConnectionsSelect {
 				ccol, crow := col, row // copy for closure
 				checkbox := widget.NewCheck("", nil)
 
-				// depending on current connections from backend, set checkmarks
+				// depending on current connections from core, set checkmarks
 				for src, nodeConnections := range connections {
 					for _, c := range nodeConnections {
 						if src == row && c.Target == col {
@@ -47,9 +47,9 @@ func NewConnectionsSelect(eb *bus.EventBus) ConnectionsSelect {
 				}
 
 				checkbox.OnChanged = func(b bool) {
-					data := bus.CheckboxPos{
-						Ccol: ccol,
-						Crow: crow,
+					data := bus.Connection{
+						From: ccol,
+						To:   crow,
 					}
 
 					// connect the two nodes
@@ -74,16 +74,15 @@ func NewConnectionsSelect(eb *bus.EventBus) ConnectionsSelect {
 		connectionsWrap.Add(grid)
 	}
 
-	eb.Bind(bus.NetworkNodeCntChangeEvt, func(e bus.Event) {
-		newNodeCnt := e.Data.(int)
-		nodeCnt = newNodeCnt
+	eb.Bind(bus.NetworkResizeEvt, func(resizeData bus.NetworkResize) {
+		nodeCnt = resizeData.Cnt
 
 		// refresh
 		addCheckboxes()
 		connectionsWrap.Refresh()
 	})
 
-	return ConnectionsSelect{connectionsWrap}
+	return &ConnectionsSelect{connectionsWrap}
 }
 
 func (c ConnectionsSelect) GetCanvasObj() fyne.CanvasObject {

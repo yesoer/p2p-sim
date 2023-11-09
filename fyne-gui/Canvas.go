@@ -1,8 +1,8 @@
-package gui
+package fynegui
 
 import (
-	"distributed-sys-emulator/backend"
 	"distributed-sys-emulator/bus"
+	"distributed-sys-emulator/core"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -14,25 +14,43 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// Declare conformance with the Component interface
+var _ Component = (*Canvas)(nil)
+
 type Canvas struct {
 	*fyne.Container
 }
 
-// Declare conformance with the Component interface
-var _ Component = (*Canvas)(nil)
+type point struct {
+	X float64
+	Y float64
+}
 
-func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
-	// keep node count up to date
+// a line can be described by y=mx+n and has a max and min bound for x values
+// TODO : store angle and source, target instead, would improve the code
+type line struct {
+	M      float64
+	N      float64
+	Xmax   int
+	Xmin   int
+	Ymax   int
+	Ymin   int
+	Target point
+}
+
+func NewCanvas(eb bus.EventBus, wcanvas fyne.Canvas) *Canvas {
+	// keep node count and connections up to date
 	var canvasRaster *canvas.Raster
 	var nodeCnt int
 	var points []point
 	var buttons []*widget.Button
+	var connections [][]*core.Connection
 	canvasc := container.NewMax()
 	buttonsc := container.NewWithoutLayout()
 
-	eb.Bind(bus.NetworkNodeCntChangeEvt, func(e bus.Event) {
-		newNodeCnt := e.Data.(int)
-		nodeCnt = newNodeCnt
+	eb.Bind(bus.NetworkResizeEvt, func(resizeData bus.NetworkResize) {
+		nodeCnt = resizeData.Cnt
+		connections = resizeData.Connections
 
 		// recalc points
 		points = pointsOnCircle(point{50, 50}, 35, nodeCnt)
@@ -44,14 +62,9 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
 		canvasRaster.Refresh()
 	})
 
-	// keep connections up to date
-	var connections [][]*backend.Connection
-	eb.Bind(bus.ConnectionChangeEvt, func(e bus.Event) {
-		newConnections, ok := e.Data.([][]*backend.Connection)
-		if ok {
-			connections = newConnections
-			canvasRaster.Refresh()
-		}
+	eb.Bind(bus.NetworkConnectionsEvt, func(newConnections [][]*core.Connection) {
+		connections = newConnections
+		canvasRaster.Refresh()
 	})
 
 	canvasRaster = canvas.NewRaster(func(w, h int) image.Image {
@@ -73,7 +86,7 @@ func NewCanvas(eb *bus.EventBus, wcanvas fyne.Canvas) Canvas {
 
 	canvasc.Add(canvasRaster)
 	wrap := container.NewMax(canvasc, buttonsc)
-	return Canvas{wrap}
+	return &Canvas{wrap}
 }
 
 func (c Canvas) GetCanvasObj() fyne.CanvasObject {
@@ -81,7 +94,7 @@ func (c Canvas) GetCanvasObj() fyne.CanvasObject {
 }
 
 func setupPopupButtons(buttonsc *fyne.Container,
-	eb *bus.EventBus,
+	eb bus.EventBus,
 	wcanvas fyne.Canvas,
 	nodeCnt int) []*widget.Button {
 
@@ -116,7 +129,7 @@ func setupPopupButtons(buttonsc *fyne.Container,
 				return
 			}
 
-			changeData := bus.NodeDataChangeData{TargetId: i, Data: data}
+			changeData := bus.NodeData{TargetId: i, Data: data}
 			evt := bus.Event{Type: bus.NodeDataChangeEvt, Data: changeData}
 			eb.Publish(evt)
 
@@ -143,7 +156,7 @@ func setupPopupButtons(buttonsc *fyne.Container,
 
 // gets width and height for the image, a network of nodes and the points that
 // represent the nodes on the image but for 100x100 units
-func draw(w, h int, points []point, connections *[][]*backend.Connection) image.Image {
+func draw(w, h int, points []point, connections *[][]*core.Connection) image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 
 	// TODO : do this once in the beginning/on every resize ?
@@ -217,11 +230,6 @@ func draw(w, h int, points []point, connections *[][]*backend.Connection) image.
 	return img
 }
 
-type point struct {
-	X float64
-	Y float64
-}
-
 // define a circle by it's center and radius and get n points equally spaced on
 // the circles outline
 func pointsOnCircle(center point, radius float64, n int) []point {
@@ -238,21 +246,9 @@ func pointsOnCircle(center point, radius float64, n int) []point {
 	return points
 }
 
-// a line can be described by y=mx+n and has a max and min bound for x values
-// TODO : store angle and source, target instead, would improve the code
-type line struct {
-	M      float64
-	N      float64
-	Xmax   int
-	Xmin   int
-	Ymax   int
-	Ymin   int
-	Target point
-}
-
 // nodes and points are implicitly linked by their slice length, so nodes[0] is
 // represented by points[0]
-func connLines(connections *[][]*backend.Connection, points []point, ratiow, ratioh float64) []line {
+func connLines(connections *[][]*core.Connection, points []point, ratiow, ratioh float64) []line {
 	// iterate over the incoming edges for each node and calculate the connection
 	// line
 	lines := []line{}

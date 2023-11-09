@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// This eventbus is supposed to serve as a connection between backend and gui.
+// This eventbus is supposed to serve as a connection between the core and gui.
 // This includes :
 // - immediately exec the callback on bind, if an event has been published before
 // - no constantly running process
