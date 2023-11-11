@@ -132,8 +132,7 @@ func (n *network) emit(s Signal) {
 
 // returns exactly one connections slice for each node
 func (n *network) getConnections() bus.Connections {
-	res := make(bus.Connections, len(n.nodes))
-
+	var res bus.Connections
 	for _, node := range n.nodes {
 		connections := node.GetConnections()
 		res = append(res, connections...)
