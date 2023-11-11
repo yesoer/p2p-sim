@@ -2,11 +2,11 @@ package fynegui
 
 import (
 	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/core"
 	"encoding/json"
 	"image"
 	"image/color"
 	"math"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -44,7 +44,7 @@ func NewCanvas(eb bus.EventBus, wcanvas fyne.Canvas) *Canvas {
 	var nodeCnt int
 	var points []point
 	var buttons []*widget.Button
-	var connections [][]*core.Connection
+	var connections bus.Connections
 	canvasc := container.NewMax()
 	buttonsc := container.NewWithoutLayout()
 
@@ -62,7 +62,7 @@ func NewCanvas(eb bus.EventBus, wcanvas fyne.Canvas) *Canvas {
 		canvasRaster.Refresh()
 	})
 
-	eb.Bind(bus.NetworkConnectionsEvt, func(newConnections [][]*core.Connection) {
+	eb.Bind(bus.NetworkConnectionsEvt, func(newConnections bus.Connections) {
 		connections = newConnections
 		canvasRaster.Refresh()
 	})
@@ -81,7 +81,7 @@ func NewCanvas(eb bus.EventBus, wcanvas fyne.Canvas) *Canvas {
 		}
 
 		// draw nodes and edges
-		return draw(w, h, points, &connections)
+		return draw(w, h, points, connections)
 	})
 
 	canvasc.Add(canvasRaster)
@@ -99,11 +99,11 @@ func setupPopupButtons(buttonsc *fyne.Container,
 	nodeCnt int) []*widget.Button {
 
 	buttons := make([]*widget.Button, nodeCnt)
-	nodePopups := make([]*widget.PopUp, nodeCnt)
+	nodeModals := make([]Modal, nodeCnt)
 
 	buttonGen := func(i int) func() {
 		return func() {
-			p := nodePopups[i]
+			p := nodeModals[i]
 			p.Resize(fyne.NewSize(300, 300))
 			p.Show()
 		}
@@ -111,7 +111,7 @@ func setupPopupButtons(buttonsc *fyne.Container,
 
 	for i := range buttons {
 		// init popup
-		label := widget.NewLabel("Custom json data to use in lua : ")
+		label := widget.NewLabel("Custom json data : ")
 		errorLabel := widget.NewLabel("")
 		errorLabel.Hide()
 
@@ -142,10 +142,10 @@ func setupPopupButtons(buttonsc *fyne.Container,
 			errorLabel)
 		popup := NewModal(vstack, wcanvas)
 		popup.Hide()
-		nodePopups[i] = popup
+		nodeModals[i] = popup
 
 		// init buttons
-		nodeName := "Node"
+		nodeName := "Node " + strconv.Itoa(i)
 		buttons[i] = widget.NewButton(nodeName, buttonGen(i))
 		buttonsc.Add(buttons[i])
 		buttons[i].Resize(buttons[i].MinSize())
@@ -156,7 +156,7 @@ func setupPopupButtons(buttonsc *fyne.Container,
 
 // gets width and height for the image, a network of nodes and the points that
 // represent the nodes on the image but for 100x100 units
-func draw(w, h int, points []point, connections *[][]*core.Connection) image.Image {
+func draw(w, h int, points []point, connections bus.Connections) image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 
 	// TODO : do this once in the beginning/on every resize ?
@@ -248,31 +248,29 @@ func pointsOnCircle(center point, radius float64, n int) []point {
 
 // nodes and points are implicitly linked by their slice length, so nodes[0] is
 // represented by points[0]
-func connLines(connections *[][]*core.Connection, points []point, ratiow, ratioh float64) []line {
+func connLines(connections bus.Connections, points []point, ratiow, ratioh float64) []line {
 	// iterate over the incoming edges for each node and calculate the connection
 	// line
 	lines := []line{}
 
-	for sourceId, connList := range *connections {
-		for _, conn := range connList {
-			pTo := points[conn.Target]
-			pFrom := points[sourceId]
+	for _, c := range connections {
+		pTo := points[c.To]
+		pFrom := points[c.From]
 
-			pTo = point{pTo.X * ratiow, pTo.Y * ratioh}
-			pFrom = point{pFrom.X * ratiow, pFrom.Y * ratioh}
+		pTo = point{pTo.X * ratiow, pTo.Y * ratioh}
+		pFrom = point{pFrom.X * ratiow, pFrom.Y * ratioh}
 
-			xmax := int(math.Max(pFrom.X, pTo.X))
-			xmin := int(math.Min(pFrom.X, pTo.X))
+		xmax := int(math.Max(pFrom.X, pTo.X))
+		xmin := int(math.Min(pFrom.X, pTo.X))
 
-			ymax := int(math.Max(pFrom.Y, pTo.Y))
-			ymin := int(math.Min(pFrom.Y, pTo.Y))
+		ymax := int(math.Max(pFrom.Y, pTo.Y))
+		ymin := int(math.Min(pFrom.Y, pTo.Y))
 
-			m := (pTo.Y - pFrom.Y) / (pTo.X - pFrom.X)
-			n := pTo.Y - (m * pTo.X)
+		m := (pTo.Y - pFrom.Y) / (pTo.X - pFrom.X)
+		n := pTo.Y - (m * pTo.X)
 
-			line := line{m, n, xmax, xmin, ymax, ymin, pTo}
-			lines = append(lines, line)
-		}
+		line := line{m, n, xmax, xmin, ymax, ymin, pTo}
+		lines = append(lines, line)
 	}
 	return lines
 }

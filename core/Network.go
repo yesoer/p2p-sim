@@ -70,40 +70,23 @@ func (n network) Init(eb bus.EventBus) {
 		n.setNodeCnt(newCnt)
 
 		// store connections
-		// TODO : as mentioned on the nodes struct, connections are poorly designed,
-		// when reworking try to create a design that avoids this reset :
-		networkC := n.getConnections()
-		if newCnt < len(networkC) {
-			networkC = networkC[:newCnt]
-			for src, nodeC := range networkC {
-				var newNodeC []*Connection
-				for _, c := range nodeC {
-					if c.Target < newCnt {
-						newNodeC = append(newNodeC, c)
-					}
-				}
-				networkC[src] = newNodeC
-			}
-		} else {
-			for i := 0; i < newCnt-len(networkC); i++ {
-				newSlice := make([]*Connection, 0)
-				networkC = append(networkC, newSlice)
-			}
-		}
+		oldNetworkC := n.getConnections()
 
 		// restart nodes
 		n.emit(TERM)
 		n.setAndRunNodes(eb)
 
 		// set connections
-		for src, nodeC := range networkC {
-			for _, c := range nodeC {
-				n.connectNodes(c.Target, src)
+		var newNetworkC bus.Connections
+		for _, nodeC := range oldNetworkC {
+			if nodeC.From <= newCnt && nodeC.To <= newCnt {
+				newNetworkC = append(newNetworkC, nodeC)
+				n.connectNodes(nodeC.From, nodeC.To)
 			}
 		}
 
 		// send NetworkNodeCntChangeEvt
-		resizeData := bus.NetworkResize{networkC, newCnt}
+		resizeData := bus.NetworkResize{Connections: newNetworkC, Cnt: newCnt}
 		sizeEvt := bus.Event{Type: bus.NetworkResizeEvt, Data: resizeData}
 		eb.Publish(sizeEvt)
 	})
@@ -148,12 +131,12 @@ func (n *network) emit(s Signal) {
 }
 
 // returns exactly one connections slice for each node
-func (n *network) getConnections() [][]*Connection {
-	res := make([][]*Connection, len(n.nodes))
+func (n *network) getConnections() bus.Connections {
+	res := make(bus.Connections, len(n.nodes))
 
-	for nodei, node := range n.nodes {
+	for _, node := range n.nodes {
 		connections := node.GetConnections()
-		res[nodei] = connections
+		res = append(res, connections...)
 	}
 
 	return res
