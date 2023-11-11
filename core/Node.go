@@ -72,6 +72,7 @@ func (n *node) SetData(json interface{}) {
 func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 	code := Code("")
 
+	// TODO : we need to undo this bind when the node stops
 	eb.Bind(bus.CodeChangeEvt, func(newCode Code) {
 		code = newCode
 	})

@@ -18,12 +18,8 @@ type ConnectionsSelect struct {
 func NewConnectionsSelect(eb bus.EventBus) *ConnectionsSelect {
 	// keep node count up to date
 	var nodeCnt int
-	connectionsWrap := container.NewHBox()
-
 	var connections bus.Connections
-	eb.Bind(bus.NetworkConnectionsEvt, func(newConnections bus.Connections) {
-		connections = newConnections
-	})
+	connectionsWrap := container.NewHBox()
 
 	addCheckboxes := func() {
 		connectionsWrap.RemoveAll()
@@ -72,6 +68,7 @@ func NewConnectionsSelect(eb bus.EventBus) *ConnectionsSelect {
 	}
 
 	eb.Bind(bus.NetworkResizeEvt, func(resizeData bus.NetworkResize) {
+		connections = resizeData.Connections
 		nodeCnt = resizeData.Cnt
 
 		// refresh
