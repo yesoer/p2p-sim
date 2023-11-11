@@ -16,26 +16,26 @@ import (
 type Node interface {
 	ConnectTo(peerId int)
 	DisconnectFrom(peerId int)
-	GetConnections() []*Connection
+	GetConnections() bus.Connections
 	SetData(json interface{})
-	Run(eb bus.EventBus, signals chan Signal)
+	Run(eb bus.EventBus, signals <-chan Signal)
 }
 
-type Connection struct {
-	ch     chan interface{}
-	Target int
+type connection struct {
+	to int
+	ch chan interface{}
 }
 
 type node struct {
-	connections []*Connection // TODO : I don't like the way these work
-	id          int           // TODO : still don't know about this, keep ids implicit or explicit everywhere
-	data        interface{}   // json data to expose to lua
+	connections []connection
+	id          int
+	data        interface{} // json data to expose to user code
 }
 
 type userFunc func(context.Context, func(targetId int, data any) int, func(int) int) string
 
 func NewNode(id int) Node {
-	var connections []*Connection
+	var connections []connection
 	return &node{connections, id, nil}
 }
 
@@ -43,21 +43,25 @@ func NewNode(id int) Node {
 // input
 func (n *node) ConnectTo(peerId int) {
 	c := make(chan interface{}, 10)
-	newConnection := Connection{c, peerId}
-	n.connections = append(n.connections, &newConnection)
+	newConnection := connection{peerId, c}
+	n.connections = append(n.connections, newConnection)
 }
 
 func (n *node) DisconnectFrom(peerId int) {
 	for connI, conn := range n.connections {
-		if conn.Target == peerId {
+		if conn.to == peerId {
 			n.connections = append(n.connections[:connI], n.connections[connI+1:]...)
 			return
 		}
 	}
 }
 
-func (n *node) GetConnections() []*Connection {
-	return n.connections
+func (n *node) GetConnections() bus.Connections {
+	res := make(bus.Connections, len(n.connections))
+	for i, c := range n.connections {
+		res[i] = bus.Connection{From: n.id, To: c.to}
+	}
+	return res
 }
 
 func (n *node) SetData(json interface{}) {
@@ -65,7 +69,7 @@ func (n *node) SetData(json interface{}) {
 }
 
 // a node will run continuously, the current state can be changed using signals
-func (n *node) Run(eb bus.EventBus, signals chan Signal) {
+func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 	code := Code("")
 
 	eb.Bind(bus.CodeChangeEvt, func(newCode Code) {
@@ -146,7 +150,7 @@ func (n *node) Run(eb bus.EventBus, signals chan Signal) {
 // TODO : another one to provide equation, send to all that resolve it e.g. for all even id's
 func (n *node) send(targetId int, data any) int {
 	for _, c := range n.connections {
-		if c.Target == targetId {
+		if c.to == targetId {
 			c.ch <- data
 			return 0
 		}
@@ -165,7 +169,7 @@ func (n *node) await(cnt int) int {
 	// listen on all channels until the specified number of messages is reached
 	res := []interface{}{}
 	for _, c := range n.connections {
-		go func(c *Connection, wg *sync.WaitGroup) {
+		go func(c connection, wg *sync.WaitGroup) {
 			for {
 				select {
 				case msg := <-c.ch:

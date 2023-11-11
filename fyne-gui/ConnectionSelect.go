@@ -2,7 +2,6 @@ package fynegui
 
 import (
 	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/core"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -21,8 +20,8 @@ func NewConnectionsSelect(eb bus.EventBus) *ConnectionsSelect {
 	var nodeCnt int
 	connectionsWrap := container.NewHBox()
 
-	var connections [][]*core.Connection
-	eb.Bind(bus.NetworkConnectionsEvt, func(newConnections [][]*core.Connection) {
+	var connections bus.Connections
+	eb.Bind(bus.NetworkConnectionsEvt, func(newConnections bus.Connections) {
 		connections = newConnections
 	})
 
@@ -38,11 +37,9 @@ func NewConnectionsSelect(eb bus.EventBus) *ConnectionsSelect {
 				checkbox := widget.NewCheck("", nil)
 
 				// depending on current connections from core, set checkmarks
-				for src, nodeConnections := range connections {
-					for _, c := range nodeConnections {
-						if src == row && c.Target == col {
-							checkbox.SetChecked(true)
-						}
+				for _, c := range connections {
+					if c.From == row && c.To == col {
+						checkbox.SetChecked(true)
 					}
 				}
 
