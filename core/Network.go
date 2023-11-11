@@ -79,7 +79,7 @@ func (n network) Init(eb bus.EventBus) {
 		// set connections
 		var newNetworkC bus.Connections
 		for _, nodeC := range oldNetworkC {
-			if nodeC.From <= newCnt && nodeC.To <= newCnt {
+			if nodeC.From < newCnt && nodeC.To < newCnt {
 				newNetworkC = append(newNetworkC, nodeC)
 				n.connectNodes(nodeC.From, nodeC.To)
 			}
