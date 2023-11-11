@@ -2,7 +2,6 @@ package fynegui
 
 import (
 	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/core"
 	"fmt"
 
 	"fyne.io/fyne/v2"
@@ -43,14 +42,7 @@ func RunGUI(eb bus.EventBus) {
 	workingDir := "."
 	path := workingDir + "/code.go"
 
-	// TODO : could move this to editor.go
-	onSubmitted := func(e *Editor) {
-		text := e.Content()
-		code := core.Code(text)
-		evt := bus.Event{Type: bus.CodeChangeEvt, Data: code}
-		eb.Publish(evt)
-	}
-	editor := NewTextEditor(path, window, onSubmitted, eb)
+	editor := NewTextEditor(path, window, eb)
 
 	console := NewConsole(eb)
 
