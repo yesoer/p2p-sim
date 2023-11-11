@@ -21,11 +21,18 @@ type Editor struct {
 	edited bool
 }
 
-func NewTextEditor(path string, _ fyne.Window, changeCB func(e *Editor), eb bus.EventBus) *Editor {
+func NewTextEditor(path string, _ fyne.Window, eb bus.EventBus) *Editor {
 	input := widget.NewMultiLineEntry()
 	input.TextStyle.Monospace = true
 	input.Wrapping = fyne.TextTruncate
 	input.PlaceHolder = "Type"
+
+	changeCB := func(e *Editor) {
+		text := e.Content()
+		code := core.Code(text)
+		evt := bus.Event{Type: bus.CodeChangeEvt, Data: code}
+		eb.Publish(evt)
+	}
 
 	// read code from disk
 	b, err := os.ReadFile(path)
