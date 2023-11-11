@@ -101,12 +101,13 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 				return
 			}
 
-			// TODO : accept empty interface as return/do we even need returns ?
+			// TODO : accept any return (should be shown on the corresponding node ?
 			userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) string)
 
 			// make node specific data accessible
-			// TODO : add own id, and neigbor ids
-			ctx = context.WithValue(ctx, "node", n.data)
+			ctx = context.WithValue(ctx, "custom", n.data)
+			ctx = context.WithValue(ctx, "connections", n.connections)
+			ctx = context.WithValue(ctx, "id", n.id)
 
 			// Execute the provided function
 			userF(ctx, n.send, n.await)
