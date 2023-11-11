@@ -9,8 +9,9 @@ import (
 // wait for ctx.Done to exit gracefully
 // use fSend and fAwait to communicate between nodes
 func Run(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(int) int) string {
-	fmt.Println(ctx.Value("node"))
-	fmt.Println("hello test")
+	fmt.Println("custom data ", ctx.Value("custom"))
+	fmt.Println("connections ", ctx.Value("connections"))
+	fmt.Println("id ", ctx.Value("id"))
 	go func() {
 		for {
 			select {
