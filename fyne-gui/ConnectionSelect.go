@@ -41,8 +41,8 @@ func NewConnectionsSelect(eb bus.EventBus) *ConnectionsSelect {
 
 				checkbox.OnChanged = func(b bool) {
 					data := bus.Connection{
-						From: ccol,
-						To:   crow,
+						From: crow,
+						To:   ccol,
 					}
 
 					// connect the two nodes
