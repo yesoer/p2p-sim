@@ -25,7 +25,7 @@ func NewConsole(eb bus.EventBus) *Console {
 	refresh := func() {
 		c.RemoveAll()
 		grid := container.NewGridWithColumns(nodeCnt)
-		for i := 0; i < nodeCnt; i++ {
+		for i := 0; i < len(outputs); i++ {
 			entry := widget.NewLabel(outputs[i])
 			grid.Add(entry)
 		}
