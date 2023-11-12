@@ -8,10 +8,11 @@ import (
 
 // wait for ctx.Done to exit gracefully
 // use fSend and fAwait to communicate between nodes
-func Run(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(int) int) string {
+func Run(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(int) int) interface{} {
 	fmt.Println("custom data ", ctx.Value("custom"))
 	fmt.Println("connections ", ctx.Value("connections"))
 	fmt.Println("id ", ctx.Value("id"))
+	res := struct{ foo string }{foo: "bar"}
 	go func() {
 		for {
 			select {
@@ -27,7 +28,7 @@ func Run(ctx context.Context, fSend func(targetId int, data any) int, fAwait fun
 	for {
 		select {
 		case <-ctx.Done():
-			return "done"
+			return res
 		default:
 			time.Sleep(time.Second * 5)
 			fSend(1, "data")

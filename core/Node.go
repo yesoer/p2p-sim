@@ -23,7 +23,7 @@ type Node interface {
 
 type connection struct {
 	to int
-	ch chan interface{}
+	ch chan interface{} // TODO : I think the channels are not intact sometimes (reproduce : run and add connections after and run again ?)
 }
 
 type node struct {
@@ -32,7 +32,7 @@ type node struct {
 	data        interface{} // json data to expose to user code
 }
 
-type userFunc func(context.Context, func(targetId int, data any) int, func(int) int) string
+type userFunc func(context.Context, func(targetId int, data any) int, func(int) int) interface{}
 
 func NewNode(id int) Node {
 	var connections []connection
@@ -82,9 +82,11 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		var cancel context.CancelFunc
 		ctx, cancel := context.WithCancel(context.Background())
 		var output string
+		var userRes interface{}
 		exec := func() {
-			var stdout, stderr bytes.Buffer
-			i := interp.New(interp.Options{Stdout: &stdout, Stderr: &stderr})
+			// TODO : stream buffer changes (detected through hashes?) to UI, and should both
+			var userFOut bytes.Buffer
+			i := interp.New(interp.Options{Stdout: &userFOut, Stderr: &userFOut})
 
 			if err := i.Use(stdlib.Symbols); err != nil {
 				panic(err)
@@ -101,8 +103,7 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 				return
 			}
 
-			// TODO : accept any return (should be shown on the corresponding node ?
-			userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) string)
+			userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) interface{})
 
 			// make node specific data accessible
 			ctx = context.WithValue(ctx, "custom", n.data)
@@ -110,9 +111,9 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 			ctx = context.WithValue(ctx, "id", n.id)
 
 			// Execute the provided function
-			userF(ctx, n.send, n.await)
+			userRes = userF(ctx, n.send, n.await)
 
-			output = stdout.String()
+			output = userFOut.String()
 		}
 
 		// wait for other signals
@@ -131,9 +132,10 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 					cancel()
 					running = false
 					// TODO : this waiting for userF to cancel sucks
-					time.Sleep(time.Second * 10)
-					data := bus.NodeLog{Str: output, NodeId: n.id}
-					e := bus.Event{Type: bus.NodeOutputLogEvt, Data: data}
+					time.Sleep(time.Second * 5)
+
+					data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
+					e := bus.Event{Type: bus.NodeOutputEvt, Data: data}
 					eb.Publish(e)
 				}
 			case TERM:
