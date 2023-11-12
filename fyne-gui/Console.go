@@ -2,8 +2,12 @@ package fynegui
 
 import (
 	"distributed-sys-emulator/bus"
+	"fmt"
+	"image/color"
+	"strconv"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
@@ -20,16 +24,52 @@ func NewConsole(eb bus.EventBus) *Console {
 
 	var nodeCnt int
 	var outputs []string
+	var results []interface{}
 
 	// depending on the outputs, create console boxes
 	refresh := func() {
 		c.RemoveAll()
-		grid := container.NewGridWithColumns(nodeCnt)
+
+		headerRow := container.NewGridWithColumns(nodeCnt)
+		for i := 0; i < nodeCnt; i++ {
+			content := "Node " + strconv.Itoa(i)
+
+			label := canvas.NewText(content, color.RGBA{51, 153, 153, 201})
+			label.TextSize = 12
+			label.TextStyle = fyne.TextStyle{
+				Bold:      true,
+				Italic:    false,
+				Monospace: false,
+				Symbol:    false,
+				TabWidth:  2,
+			}
+			entry := container.NewCenter(label)
+
+			headerRow.Add(entry)
+		}
+
+		outRow := container.NewGridWithColumns(len(outputs))
 		for i := 0; i < len(outputs); i++ {
 			entry := widget.NewLabel(outputs[i])
-			grid.Add(entry)
+			outRow.Add(entry)
 		}
-		c.Add(grid)
+
+		resRow := container.NewGridWithColumns(len(results))
+		for i := 0; i < len(results); i++ {
+			resStr := fmt.Sprintf("%v", results[i])
+			entry := widget.NewLabel(resStr)
+			resRow.Add(entry)
+		}
+
+		out := container.NewVBox(
+			headerRow,
+			widget.NewSeparator(),
+			outRow,
+			widget.NewSeparator(),
+			resRow,
+		)
+
+		c.Add(out)
 		c.Refresh()
 	}
 
@@ -39,14 +79,16 @@ func NewConsole(eb bus.EventBus) *Console {
 		if nodeCnt > len(outputs) {
 			for i := 0; i <= nodeCnt-len(outputs); i++ {
 				outputs = append(outputs, "")
+				results = append(results, nil)
 			}
 		}
 		refresh()
 	})
 
 	// update outputs
-	eb.Bind(bus.NodeOutputLogEvt, func(out bus.NodeLog) {
-		outputs[out.NodeId] = out.Str
+	eb.Bind(bus.NodeOutputEvt, func(out bus.NodeOutput) {
+		outputs[out.NodeId] = out.Log
+		results[out.NodeId] = out.Result
 		refresh()
 	})
 
