@@ -7,11 +7,11 @@ import (
 )
 
 type sendFunc func(targetId int, data any) int
-type awaitFunc func(int) []interface{}
+type awaitFunc func(int) []any
 
 // wait for ctx.Done to exit gracefully
 // use fSend and fAwait to communicate between nodes
-func Run(ctx context.Context, fSend sendFunc, fAwait awaitFunc) interface{} {
+func Run(ctx context.Context, fSend sendFunc, fAwait awaitFunc) any {
 	fmt.Println("custom data ", ctx.Value("custom"))
 	fmt.Println("connections ", ctx.Value("connections"))
 	fmt.Println("id ", ctx.Value("id"))

@@ -24,7 +24,7 @@ func NewConsole(eb bus.EventBus) *Console {
 
 	var nodeCnt int
 	var outputs []string
-	var results []interface{}
+	var results []any
 
 	// depending on the outputs, create console boxes
 	refresh := func() {

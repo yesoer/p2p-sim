@@ -17,7 +17,7 @@ const NodeDataChangeEvt EventType = "node-data-change"
 
 type NodeData struct {
 	TargetId int
-	Data     interface{}
+	Data     any
 }
 
 const ConnectNodesEvt EventType = "connect-nodes"
@@ -54,6 +54,6 @@ const NodeOutputEvt EventType = "node-output-log"
 
 type NodeOutput struct {
 	Log    string
-	Result interface{}
+	Result any
 	NodeId int
 }

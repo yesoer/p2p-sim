@@ -21,8 +21,8 @@ type EventType string
 type callback any
 
 type Event struct {
-	Type EventType   `json:"type"`
-	Data interface{} `json:"data"`
+	Type EventType `json:"type"`
+	Data any       `json:"data"`
 }
 
 type eventBusData struct {
