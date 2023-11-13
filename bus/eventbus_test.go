@@ -1,7 +1,6 @@
 package bus
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -61,7 +60,6 @@ func TestEventBus_Publish_Stress(t *testing.T) {
 	bus.AwaitBind(countEvt, func(d int) {
 		mu.Lock()
 		counter++
-		fmt.Println("counter ", counter)
 		mu.Unlock()
 	})
 
@@ -74,7 +72,6 @@ func TestEventBus_Publish_Stress(t *testing.T) {
 	time.Sleep(time.Second)
 
 	mu.Lock()
-	fmt.Println("counter ", counter)
 	if counter != testCnt {
 		t.Errorf("Data race on event publish detected, was %d but should've been %d", counter, testCnt)
 	}
