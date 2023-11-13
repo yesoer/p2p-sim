@@ -5,9 +5,9 @@ import (
 	"distributed-sys-emulator/log"
 )
 
-type Signal int
-
 type Code string
+
+type Signal int
 
 const (
 	START Signal = 1
@@ -15,7 +15,7 @@ const (
 	TERM  Signal = 3
 )
 
-const InitialNodeCnt = 2
+const initialNodeCnt = 2
 
 type Network interface {
 	Init(eb bus.EventBus)
@@ -29,8 +29,8 @@ type network struct {
 
 func NewNetwork(eb bus.EventBus) Network {
 	var nodes []Node
-	signals := make(chan Signal, 10)
-	cnt := InitialNodeCnt
+	signals := make(chan Signal, 10) // TODO : should the buffersize depend on nodecnt ?
+	cnt := initialNodeCnt
 	return network{nodes, signals, cnt}
 }
 
@@ -43,21 +43,12 @@ func (n network) Init(eb bus.EventBus) {
 	eb.Bind(bus.StopNodesEvt, func() { n.emit(STOP) })
 
 	eb.Bind(bus.ConnectNodesEvt, func(connData bus.Connection) {
-		n.connectNodes(connData.From, connData.To)
+		n.connectNodes(eb, connData.From, connData.To)
 
-		// publish event back to gui
-		connections := n.getConnections()
-		newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
-		eb.Publish(newEvent)
 	})
 
 	eb.Bind(bus.DisconnectNodesEvt, func(connData bus.Connection) {
-		n.disconnectNodes(connData.From, connData.To)
-
-		// publish event back to gui
-		connections := n.getConnections()
-		newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
-		eb.Publish(newEvent)
+		n.disconnectNodes(eb, connData.From, connData.To)
 	})
 
 	eb.Bind(bus.NodeDataChangeEvt, func(newData bus.NodeData) {
@@ -65,35 +56,39 @@ func (n network) Init(eb bus.EventBus) {
 	})
 
 	eb.Bind(bus.NodeCntChangeEvt, func(newCnt int) {
-		// update node count
-		n.setNodeCnt(newCnt)
-
-		// store connections
-		oldNetworkC := n.getConnections()
-
-		// restart nodes
-		n.emit(TERM)
-		n.setAndRunNodes(eb)
-
-		// set connections
-		var newNetworkC bus.Connections
-		for _, nodeC := range oldNetworkC {
-			if nodeC.From < newCnt && nodeC.To < newCnt {
-				newNetworkC = append(newNetworkC, nodeC)
-				n.connectNodes(nodeC.From, nodeC.To)
-			}
-		}
-
-		// send NetworkNodeCntChangeEvt
-		resizeData := bus.NetworkResize{Connections: newNetworkC, Cnt: newCnt}
-		sizeEvt := bus.Event{Type: bus.NetworkResizeEvt, Data: resizeData}
-		eb.Publish(sizeEvt)
+		n.resize(eb, newCnt)
 	})
 
 	// publish the initial node count to the ui
 	resizeData := bus.NetworkResize{Connections: nil, Cnt: n.nodeCnt}
 	evt := bus.Event{Type: bus.NetworkResizeEvt, Data: resizeData}
 	eb.Publish(evt)
+}
+
+func (n *network) resize(eb bus.EventBus, newCnt int) {
+	// update node count
+	n.setNodeCnt(newCnt)
+
+	// store connections
+	oldNetworkC := n.getConnections()
+
+	// restart nodes
+	n.emit(TERM)
+	n.setAndRunNodes(eb)
+
+	// set connections
+	var newNetworkC bus.Connections
+	for _, nodeC := range oldNetworkC {
+		if nodeC.From < newCnt && nodeC.To < newCnt {
+			newNetworkC = append(newNetworkC, nodeC)
+			n.nodes[nodeC.From].ConnectTo(nodeC.To)
+		}
+	}
+
+	// send NetworkNodeCntChangeEvt
+	resizeData := bus.NetworkResize{Connections: newNetworkC, Cnt: newCnt}
+	sizeEvt := bus.Event{Type: bus.NetworkResizeEvt, Data: resizeData}
+	eb.Publish(sizeEvt)
 }
 
 func (n *network) setNodeCnt(cnt int) {
@@ -104,12 +99,22 @@ func (n *network) setData(json any, toId int) {
 	n.nodes[toId].SetData(json)
 }
 
-func (n network) connectNodes(fromId, toId int) {
+func (n network) connectNodes(eb bus.EventBus, fromId, toId int) {
 	n.nodes[fromId].ConnectTo(toId)
+
+	// publish event back to gui
+	connections := n.getConnections()
+	newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
+	eb.Publish(newEvent)
 }
 
-func (n network) disconnectNodes(fromId, toId int) {
+func (n network) disconnectNodes(eb bus.EventBus, fromId, toId int) {
 	n.nodes[fromId].DisconnectFrom(toId)
+
+	// publish event back to gui
+	connections := n.getConnections()
+	newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
+	eb.Publish(newEvent)
 }
 
 func (n *network) setAndRunNodes(eb bus.EventBus) {
@@ -117,7 +122,7 @@ func (n *network) setAndRunNodes(eb bus.EventBus) {
 	n.nodes = make([]Node, cnt)
 	for i := 0; i < cnt; i++ {
 		newNode := NewNode(i)
-		newNode.Run(eb, n.signals)
+		go newNode.Run(eb, n.signals)
 		n.nodes[i] = newNode
 	}
 }

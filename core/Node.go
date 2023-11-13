@@ -67,89 +67,98 @@ func (n *node) SetData(json any) {
 
 // a node will run continuously, the current state can be changed using signals
 func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
-	code := Code("")
-
 	// TODO : we need to undo this bind when the node stops
+	code := Code("")
 	eb.Bind(bus.CodeChangeEvt, func(newCode Code) {
 		code = newCode
 	})
 
 	// code exec
-	go func() {
-		var cancel context.CancelFunc
-		var ctx context.Context
-		var output string
-		var userRes any
-		exec := func() {
-			ctx, cancel = context.WithCancel(context.Background())
+	codeCancel := make(chan any, 1)
+	var output string
+	var userRes any
 
-			// TODO : stream buffer changes (detected through hashes?) to UI, and should both
-			var userFOut bytes.Buffer
-			i := interp.New(interp.Options{Stdout: &userFOut, Stderr: &userFOut})
-
-			if err := i.Use(stdlib.Symbols); err != nil {
-				panic(err)
+	// wait for other signals
+	running := false
+	for sig := range signals {
+		log.Debug("Node ", n.id, " received signal ", sig)
+		switch sig {
+		case START:
+			if !running {
+				go n.codeExec(codeCancel, code)
+				running = true
 			}
+		case STOP:
+			if running {
+				// kill exec of userF and return to start of loop
+				close(codeCancel)
+				running = false
+				// TODO : this waiting for userF to cancel sucks
+				time.Sleep(time.Second * 5)
 
-			_, err := i.Eval(string(code))
-			if err != nil {
-				panic(err)
+				data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
+				e := bus.Event{Type: bus.NodeOutputEvt, Data: data}
+				eb.Publish(e)
 			}
-
-			v, err := i.Eval("Run")
-			if err != nil {
-				log.Error(err)
-				return
+		case TERM:
+			if running {
+				close(codeCancel)
 			}
-
-			userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
-
-			// make node specific data accessible
-			neighborsIds := make([]int, len(n.connections))
-			for i, c := range n.connections {
-				neighborsIds[i] = c.to
-			}
-			ctx = context.WithValue(ctx, "custom", n.data)
-			ctx = context.WithValue(ctx, "neighbors", neighborsIds)
-			ctx = context.WithValue(ctx, "id", n.id)
-
-			// Execute the provided function
-			userRes = userF(ctx, n.send, n.await)
-
-			output = userFOut.String()
+			return
 		}
-
-		// wait for other signals
-		running := false
-		for sig := range signals {
-			log.Debug("Node ", n.id, " received signal ", sig)
-			switch sig {
-			case START:
-				if !running {
-					go exec()
-					running = true
-				}
-			case STOP:
-				if running {
-					// kill exec of userF and return to start of loop
-					cancel()
-					running = false
-					// TODO : this waiting for userF to cancel sucks
-					time.Sleep(time.Second * 5)
-
-					data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
-					e := bus.Event{Type: bus.NodeOutputEvt, Data: data}
-					eb.Publish(e)
-				}
-			case TERM:
-				if running {
-					cancel()
-				}
-				return
-			}
-		}
-	}()
+	}
 }
+
+func (n *node) codeExec(codeCancel chan any, code Code) (any, string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-codeCancel
+		cancel()
+	}()
+
+	// TODO : stream buffer changes (detected through hashes?) to UI, and should both
+	var userFOut bytes.Buffer
+	i := interp.New(interp.Options{Stdout: &userFOut, Stderr: &userFOut})
+
+	if err := i.Use(stdlib.Symbols); err != nil {
+		panic(err)
+	}
+
+	_, err := i.Eval(string(code))
+	if err != nil {
+		panic(err)
+	}
+
+	v, err := i.Eval("Run")
+	if err != nil {
+		log.Error(err)
+		return nil, err.Error()
+	}
+
+	userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
+
+	// make node specific data accessible
+	neighborsIds := make([]int, len(n.connections))
+	for i, c := range n.connections {
+		neighborsIds[i] = c.to
+	}
+	ctx = context.WithValue(ctx, "custom", n.data)
+	ctx = context.WithValue(ctx, "neighbors", neighborsIds)
+	ctx = context.WithValue(ctx, "id", n.id)
+
+	// Execute the provided function
+	userRes := userF(ctx, n.send, n.await)
+
+	output := userFOut.String()
+
+	return userRes, output
+}
+
+/*
+* USER CODE UTILS
+* The following are functions which should be exposed to the user code e.g.
+* for communication between the nodes.
+ */
 
 // function to be used from user code to send a message (data is the first )
 // parameter to a specific node
