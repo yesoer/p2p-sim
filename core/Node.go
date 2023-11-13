@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/log"
-	"fmt"
 	"sync"
 
 	"github.com/traefik/yaegi/interp"
@@ -91,9 +90,7 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 			if running {
 				// kill exec of userF and return to start of loop
 				close(codeCancel)
-				fmt.Print("waiting ")
 				data := <-resChan
-				fmt.Print("publish ", data)
 				e := bus.Event{Type: bus.NodeOutputEvt, Data: data}
 				eb.Publish(e)
 				running = false
@@ -151,9 +148,7 @@ func (n *node) codeExec(codeCancel chan any, code Code, resChan chan bus.NodeOut
 	output := userFOut.String()
 
 	data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
-	fmt.Print("going to send ", resChan)
 	resChan <- data
-	fmt.Print("res sent ", resChan)
 }
 
 /*
