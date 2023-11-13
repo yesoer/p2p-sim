@@ -2,7 +2,7 @@ package fynegui
 
 import (
 	"distributed-sys-emulator/bus"
-	"fmt"
+	"distributed-sys-emulator/log"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -63,7 +63,7 @@ func RunGUI(eb bus.EventBus) {
 	// TODO : can we get 'command' to work ?
 	saveSC := &desktop.CustomShortcut{KeyName: fyne.KeyS, Modifier: fyne.KeyModifierControl}
 	window.Canvas().AddShortcut(saveSC, func(shortcut fyne.Shortcut) {
-		fmt.Println("Save triggered")
+		log.Debug("Stored to disk")
 		editor.Save()
 	})
 

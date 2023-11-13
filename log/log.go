@@ -29,7 +29,8 @@ const (
 func log(colorCode, level string, logLevel LogLevel, optionalErr error, message ...any) {
 	logPrefix := "%s[%s]%s "
 	if logLevel == ErrorLevel {
-		fmt.Printf(logPrefix+"%+v\n", colorCode, level, resetColor, message)
+		fmt.Printf(logPrefix+"%+v\n", colorCode, level, resetColor, optionalErr)
+		fmt.Println(message...)
 		return
 	}
 

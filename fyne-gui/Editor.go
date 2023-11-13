@@ -5,7 +5,7 @@ package fynegui
 import (
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/core"
-	"fmt"
+	"distributed-sys-emulator/log"
 	"os"
 
 	"fyne.io/fyne/v2"
@@ -69,7 +69,7 @@ func (e *Editor) Content() string {
 func (e *Editor) Save() {
 	err := os.WriteFile(e.path, []byte(e.Text), 0644)
 	if err != nil {
-		fmt.Println("Save Error :", err)
+		log.Error(err)
 	}
 
 	e.edited = false

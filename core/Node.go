@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/log"
-	"fmt"
 	"sync"
 	"time"
 
@@ -99,7 +98,7 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 
 			v, err := i.Eval("Run")
 			if err != nil {
-				fmt.Println("Error ", err)
+				log.Error(err)
 				return
 			}
 
