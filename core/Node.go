@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/log"
+	"fmt"
 	"sync"
-	"time"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -73,9 +73,8 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		code = newCode
 	})
 
-	var output string
-	var userRes any
 	var codeCancel chan any
+	resChan := make(chan bus.NodeOutput)
 
 	// wait for other signals
 	running := false
@@ -85,33 +84,31 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		case START:
 			if !running {
 				codeCancel = make(chan any, 1)
-				go func() {
-					userRes, output = n.codeExec(codeCancel, code)
-				}()
+				go n.codeExec(codeCancel, code, resChan)
 				running = true
 			}
 		case STOP:
 			if running {
 				// kill exec of userF and return to start of loop
 				close(codeCancel)
-				running = false
-				// TODO : this waiting for userF to cancel sucks
-				time.Sleep(time.Second * 5)
-
-				data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
+				fmt.Print("waiting ")
+				data := <-resChan
+				fmt.Print("publish ", data)
 				e := bus.Event{Type: bus.NodeOutputEvt, Data: data}
 				eb.Publish(e)
+				running = false
 			}
 		case TERM:
 			if running {
 				close(codeCancel)
+				close(resChan)
 			}
 			return
 		}
 	}
 }
 
-func (n *node) codeExec(codeCancel chan any, code Code) (any, string) {
+func (n *node) codeExec(codeCancel chan any, code Code, resChan chan bus.NodeOutput) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		<-codeCancel
@@ -134,7 +131,8 @@ func (n *node) codeExec(codeCancel chan any, code Code) (any, string) {
 	v, err := i.Eval("Run")
 	if err != nil {
 		log.Error(err)
-		return nil, err.Error()
+		data := bus.NodeOutput{Log: err.Error(), Result: nil, NodeId: n.id}
+		resChan <- data
 	}
 
 	userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
@@ -150,10 +148,12 @@ func (n *node) codeExec(codeCancel chan any, code Code) (any, string) {
 
 	// Execute the provided function
 	userRes := userF(ctx, n.send, n.await)
-
 	output := userFOut.String()
 
-	return userRes, output
+	data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
+	fmt.Print("going to send ", resChan)
+	resChan <- data
+	fmt.Print("res sent ", resChan)
 }
 
 /*
