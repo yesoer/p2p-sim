@@ -50,7 +50,7 @@ type NetworkResize struct {
 	Cnt int
 }
 
-const NodeOutputEvt EventType = "node-output-log"
+const NodeOutputEvt EventType = "node-output"
 
 type NodeOutput struct {
 	Log    string
