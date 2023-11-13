@@ -23,7 +23,7 @@ type Node interface {
 
 type connection struct {
 	to int
-	ch chan any // TODO : I think the channels are not intact sometimes (reproduce : run and add connections after and run again ?)
+	ch chan any
 }
 
 type node struct {
@@ -78,10 +78,12 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 	// code exec
 	go func() {
 		var cancel context.CancelFunc
-		ctx, cancel := context.WithCancel(context.Background())
+		var ctx context.Context
 		var output string
 		var userRes any
 		exec := func() {
+			ctx, cancel = context.WithCancel(context.Background())
+
 			// TODO : stream buffer changes (detected through hashes?) to UI, and should both
 			var userFOut bytes.Buffer
 			i := interp.New(interp.Options{Stdout: &userFOut, Stderr: &userFOut})
