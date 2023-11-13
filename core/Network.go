@@ -100,7 +100,7 @@ func (n *network) setNodeCnt(cnt int) {
 	n.nodeCnt = cnt
 }
 
-func (n *network) setData(json interface{}, toId int) {
+func (n *network) setData(json any, toId int) {
 	n.nodes[toId].SetData(json)
 }
 

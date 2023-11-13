@@ -17,19 +17,19 @@ type Node interface {
 	ConnectTo(peerId int)
 	DisconnectFrom(peerId int)
 	GetConnections() bus.Connections
-	SetData(json interface{})
+	SetData(json any)
 	Run(eb bus.EventBus, signals <-chan Signal)
 }
 
 type connection struct {
 	to int
-	ch chan interface{} // TODO : I think the channels are not intact sometimes (reproduce : run and add connections after and run again ?)
+	ch chan any // TODO : I think the channels are not intact sometimes (reproduce : run and add connections after and run again ?)
 }
 
 type node struct {
 	connections []connection
 	id          int
-	data        interface{} // json data to expose to user code
+	data        any // json data to expose to user code
 }
 
 func NewNode(id int) Node {
@@ -40,7 +40,7 @@ func NewNode(id int) Node {
 // make a one way connection from  n to peer, meaning peer adds n's output as
 // input
 func (n *node) ConnectTo(peerId int) {
-	c := make(chan interface{}, 10)
+	c := make(chan any, 10)
 	newConnection := connection{peerId, c}
 	n.connections = append(n.connections, newConnection)
 }
@@ -62,7 +62,7 @@ func (n *node) GetConnections() bus.Connections {
 	return res
 }
 
-func (n *node) SetData(json interface{}) {
+func (n *node) SetData(json any) {
 	n.data = json
 }
 
@@ -80,7 +80,7 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		var cancel context.CancelFunc
 		ctx, cancel := context.WithCancel(context.Background())
 		var output string
-		var userRes interface{}
+		var userRes any
 		exec := func() {
 			// TODO : stream buffer changes (detected through hashes?) to UI, and should both
 			var userFOut bytes.Buffer
@@ -101,7 +101,7 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 				return
 			}
 
-			userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []interface{}) interface{})
+			userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
 
 			// make node specific data accessible
 			ctx = context.WithValue(ctx, "custom", n.data)
@@ -162,14 +162,14 @@ func (n *node) send(targetId int, data any) int {
 
 // function to be used from user code to wait for n messages from all connected
 // peers
-func (n *node) await(cnt int) []interface{} {
+func (n *node) await(cnt int) []any {
 	var wg sync.WaitGroup
 	wg.Add(cnt)
 	// channel to kill those channels where we don't expect a message ?
 	kill := make(chan bool, 10)
 
 	// listen on all channels until the specified number of messages is reached
-	res := []interface{}{}
+	res := []any{}
 	for _, c := range n.connections {
 		go func(c connection, wg *sync.WaitGroup) {
 			for {

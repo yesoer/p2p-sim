@@ -121,7 +121,7 @@ func setupPopupButtons(buttonsc *fyne.Container,
 
 		jsonInput.OnChanged = func(s string) {
 			// unmarshal string/check json format validity
-			var data interface{}
+			var data any
 			err := json.Unmarshal([]byte(s), &data)
 			if err != nil {
 				errorLabel.SetText(err.Error())

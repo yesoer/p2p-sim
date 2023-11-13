@@ -26,7 +26,7 @@ const (
 )
 
 // log prints the message with the specified color
-func log(colorCode, level string, logLevel LogLevel, optionalErr error, message ...interface{}) {
+func log(colorCode, level string, logLevel LogLevel, optionalErr error, message ...any) {
 	logPrefix := "%s[%s]%s "
 	if logLevel == ErrorLevel {
 		fmt.Printf(logPrefix+"%+v\n", colorCode, level, resetColor, message)
@@ -39,18 +39,18 @@ func log(colorCode, level string, logLevel LogLevel, optionalErr error, message 
 
 // Info logs information messages, so anything that may be interesting to the
 // end user : application health, system resources etc.
-func Info(message ...interface{}) {
+func Info(message ...any) {
 	log(greenColor, "INFO", InfoLevel, nil, message...)
 }
 
 // Error logs error messages
-func Error(err error, message ...interface{}) {
+func Error(err error, message ...any) {
 	log(redColor, "ERROR", ErrorLevel, err, message...)
 }
 
 // Debug logs debug messages, so anything that gives information about specific
 // variables and data flow within the application
-func Debug(message ...interface{}) {
+func Debug(message ...any) {
 	file, line := trace(3)
 	trace := "\nCalled from  : " + file + ":" + strconv.Itoa(line)
 	message = append(message, trace)
