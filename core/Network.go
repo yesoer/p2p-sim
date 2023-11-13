@@ -2,7 +2,7 @@ package core
 
 import (
 	"distributed-sys-emulator/bus"
-	"log"
+	"distributed-sys-emulator/log"
 )
 
 type Signal int
@@ -38,7 +38,6 @@ func (n network) Init(eb bus.EventBus) {
 	n.setAndRunNodes(eb)
 
 	// bind node handlers to the various relevant events
-	// TODO : I think some, if not all of these should be outside the loop
 	eb.Bind(bus.StartNodesEvt, func() { n.emit(START) })
 
 	eb.Bind(bus.StopNodesEvt, func() { n.emit(STOP) })
@@ -124,7 +123,7 @@ func (n *network) setAndRunNodes(eb bus.EventBus) {
 }
 
 func (n *network) emit(s Signal) {
-	log.Printf("Emit signal %d to nodes", s)
+	log.Debug("Emit signal %d to nodes", s)
 	for range n.nodes {
 		n.signals <- s
 	}

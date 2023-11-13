@@ -3,8 +3,8 @@ package core
 import (
 	"bytes"
 	"distributed-sys-emulator/bus"
+	"distributed-sys-emulator/log"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -119,7 +119,7 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		// wait for other signals
 		running := false
 		for sig := range signals {
-			log.Println("Node ", n.id, " received signal ", sig)
+			log.Debug("Node ", n.id, " received signal ", sig)
 			switch sig {
 			case START:
 				if !running {

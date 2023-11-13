@@ -1,9 +1,9 @@
 package bus
 
 import (
-	"log"
+	"distributed-sys-emulator/log"
+	"errors"
 	"reflect"
-	"runtime"
 	"sync"
 )
 
@@ -84,13 +84,14 @@ func (bus *eventBus) bindLogic(etype EventType, cb callback) bool {
 		// expected by callbacks, check if this callbacks signature matches
 		match := current.cbType == reflect.TypeOf(cb)
 		if !match {
-			log.Println("Error : The provided callback does not match the expected arg type.")
+			err := errors.New("the provided callback does not match the expected arg type")
+			log.Error(err)
 			return false
 		}
 		newCallbacks := append(current.callbacks, cb)
 		bus.data[etype] = eventBusData{newCallbacks, current.recent, current.cbType}
 	}
-	log.Println("Bound func to event type : ", etype)
+	log.Debug("Bound func to event type : ", etype)
 
 	if current.recent != nil {
 		cbv := reflect.ValueOf(cb)
@@ -138,14 +139,14 @@ func (bus *eventBus) publishLogic(e Event) bool {
 	}
 
 	// execute all callbacks for this event
-	prevFile, line := getPreviousCallerFile()
-	log.Println("Publish event ", e, " from ", prevFile, ":", line)
+	log.Debug("Publish Event", e)
 	if current := bus.data[e.Type]; current.callbacks != nil {
 		for _, cb := range current.callbacks {
 			// check if event data matches expected callback arg type
 			argType := getFSignature(e.Data)
 			if argType != current.cbType {
-				log.Println("Error : Event data type does not match callback arg type.")
+				err := errors.New("event data type does not match callback arg type")
+				log.Error(err)
 				return false
 			}
 
@@ -171,23 +172,4 @@ func getFSignature(arg any) reflect.Type {
 	out := []reflect.Type{}
 	fSig := reflect.FuncOf(in, out, false)
 	return fSig
-}
-
-func getPreviousCallerFile() (string, int) {
-	pc := make([]uintptr, 10) // Adjust the size as needed
-	n := runtime.Callers(0, pc)
-	frames := runtime.CallersFrames(pc[:n])
-
-	// Skip the first frame, which is the getPreviousCallerFile function itself
-	_, more := frames.Next()
-	if !more {
-		return "", 0
-	}
-
-	prevFrame, more := frames.Next()
-	if !more {
-		return "", 0
-	}
-
-	return prevFrame.File, prevFrame.Line
 }
