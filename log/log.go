@@ -2,6 +2,8 @@ package log
 
 import (
 	"fmt"
+	"runtime"
+	"strconv"
 )
 
 const (
@@ -24,23 +26,50 @@ const (
 )
 
 // log prints the message with the specified color
-func log(colorCode, level, message string, logLevel LogLevel) {
-	if logLevel >= InfoLevel {
-		fmt.Printf("%s[%s]%s %s\n", colorCode, level, resetColor, message)
+func log(colorCode, level string, logLevel LogLevel, optionalErr error, message ...interface{}) {
+	logPrefix := "%s[%s]%s "
+	if logLevel == ErrorLevel {
+		fmt.Printf(logPrefix+"%+v\n", colorCode, level, resetColor, message)
+		return
 	}
+
+	fmt.Printf(logPrefix, colorCode, level, resetColor)
+	fmt.Println(message...)
 }
 
-// Info logs information messages
-func Info(message string) {
-	log(greenColor, "INFO", message, InfoLevel)
+// Info logs information messages, so anything that may be interesting to the
+// end user : application health, system resources etc.
+func Info(message ...interface{}) {
+	log(greenColor, "INFO", InfoLevel, nil, message...)
 }
 
 // Error logs error messages
-func Error(message string) {
-	log(redColor, "ERROR", message, ErrorLevel)
+func Error(err error, message ...interface{}) {
+	log(redColor, "ERROR", ErrorLevel, err, message...)
 }
 
-// Debug logs debug messages
-func Debug(message string) {
-	log(blueColor, "DEBUG", message, DebugLevel)
+// Debug logs debug messages, so anything that gives information about specific
+// variables and data flow within the application
+func Debug(message ...interface{}) {
+	file, line := trace(3)
+	trace := "\nCalled from  : " + file + ":" + strconv.Itoa(line)
+	message = append(message, trace)
+	log(blueColor, "DEBUG", DebugLevel, nil, message...)
+}
+
+func trace(depth int) (string, int) {
+	pc := make([]uintptr, 5) // Adjust the size as needed
+	n := runtime.Callers(0, pc)
+	frames := runtime.CallersFrames(pc[:n])
+
+	// Skip the first frames, which is the log file
+	f, more := frames.Next()
+	for i := 0; more && i < depth; i++ {
+		f, more = frames.Next()
+		if !more {
+			return "", 0
+		}
+	}
+
+	return f.File, f.Line
 }
