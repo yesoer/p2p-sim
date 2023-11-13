@@ -32,8 +32,6 @@ type node struct {
 	data        interface{} // json data to expose to user code
 }
 
-type userFunc func(context.Context, func(targetId int, data any) int, func(int) int) interface{}
-
 func NewNode(id int) Node {
 	var connections []connection
 	return &node{connections, id, nil}
@@ -103,7 +101,7 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 				return
 			}
 
-			userF := v.Interface().(func(context.Context, func(targetId int, data any) int, func(int) int) interface{})
+			userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []interface{}) interface{})
 
 			// make node specific data accessible
 			ctx = context.WithValue(ctx, "custom", n.data)
@@ -164,7 +162,7 @@ func (n *node) send(targetId int, data any) int {
 
 // function to be used from user code to wait for n messages from all connected
 // peers
-func (n *node) await(cnt int) int {
+func (n *node) await(cnt int) []interface{} {
 	var wg sync.WaitGroup
 	wg.Add(cnt)
 	// channel to kill those channels where we don't expect a message ?
@@ -191,6 +189,5 @@ func (n *node) await(cnt int) int {
 		kill <- true
 	}
 
-	// TODO : return res
-	return 1
+	return res
 }
