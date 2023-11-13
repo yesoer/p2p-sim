@@ -15,6 +15,27 @@ go build main.go
 ./main
 ```
 
+## Features to be Implemented
+
+Topics to implement (no specific order) : 
+
+- Draw edges/connections using drag and drop
+- Show transmitted data along edges
+- Code generation for the networking part
+- Define connections using a go function e.g. to connect nodes depending on the custom data/ids
+- Debug option which means communication is synced (all nodes keep working until they reach either a send or await)
+- Intermediate logs (e.g. via streaming, see TODO in Node.Run())
+- Stress test functionality with varying configurations.
+- More ways to design the network : 
+  - quick connect : chord ring, tree (random or binary)
+  - non-directed edges etc.
+
+Topics to look into (whether we want them) :
+- Port numbering model ? LOCAL model ?
+- Automated proof generation (probably requires restriction to certain instructions etc.)
+
+Minimizing what users have to do and optimising how they do it, is a continuous effort.
+
 ## Contribution
 
 When confused, no worries, just publish what you have. 
