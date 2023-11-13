@@ -104,8 +104,12 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 			userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
 
 			// make node specific data accessible
+			neighborsIds := make([]int, len(n.connections))
+			for i, c := range n.connections {
+				neighborsIds[i] = c.to
+			}
 			ctx = context.WithValue(ctx, "custom", n.data)
-			ctx = context.WithValue(ctx, "connections", n.connections)
+			ctx = context.WithValue(ctx, "neighbors", neighborsIds)
 			ctx = context.WithValue(ctx, "id", n.id)
 
 			// Execute the provided function
