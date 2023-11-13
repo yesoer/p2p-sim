@@ -81,6 +81,9 @@ func NewConsole(eb bus.EventBus) *Console {
 				outputs = append(outputs, "")
 				results = append(results, nil)
 			}
+		} else {
+			outputs = outputs[:nodeCnt]
+			results = results[:nodeCnt]
 		}
 		refresh()
 	})
