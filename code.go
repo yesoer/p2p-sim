@@ -13,7 +13,7 @@ type awaitFunc func(int) []any
 // use fSend and fAwait to communicate between nodes
 func Run(ctx context.Context, fSend sendFunc, fAwait awaitFunc) any {
 	fmt.Println("custom data ", ctx.Value("custom"))
-	fmt.Println("connections ", ctx.Value("connections"))
+	fmt.Println("neighbors ", ctx.Value("neighbors"))
 	fmt.Println("id ", ctx.Value("id"))
 	res := struct{ foo string }{foo: "bar"}
 	go func() {
@@ -34,7 +34,13 @@ func Run(ctx context.Context, fSend sendFunc, fAwait awaitFunc) any {
 			return res
 		default:
 			time.Sleep(time.Second * 5)
-			fSend(1, "data")
+			neighbors, ok := ctx.Value("neighbors").([]int)
+			if ok {
+				fmt.Println("send")
+				for _, c := range neighbors {
+					fSend(c, "data")
+				}
+			}
 		}
 	}
 }
