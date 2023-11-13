@@ -73,10 +73,9 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		code = newCode
 	})
 
-	// code exec
-	codeCancel := make(chan any, 1)
 	var output string
 	var userRes any
+	var codeCancel chan any
 
 	// wait for other signals
 	running := false
@@ -85,7 +84,10 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		switch sig {
 		case START:
 			if !running {
-				go n.codeExec(codeCancel, code)
+				codeCancel = make(chan any, 1)
+				go func() {
+					userRes, output = n.codeExec(codeCancel, code)
+				}()
 				running = true
 			}
 		case STOP:
