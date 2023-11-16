@@ -2,17 +2,18 @@ package bus
 
 import (
 	"distributed-sys-emulator/log"
+	"distributed-sys-emulator/smap"
 	"errors"
 	"reflect"
-	"sync"
 )
 
-// This eventbus is supposed to serve as a connection between the core and gui.
-// This includes :
-// - immediately exec the callback on bind, if an event has been published before
-// - no constantly running process
-// - callbacks may publish
-// - implicit eventtype/eventdata matching and checking
+/* This eventbus is supposed to serve as a connection between the core and gui.
+* This includes :
+* - immediately exec the callback on bind, if an event has been published before
+* - no constantly running process
+* - callbacks may publish
+* - implicit eventtype/eventdata matching and checking
+ */
 
 type EventType string
 
@@ -39,13 +40,12 @@ type EventBus interface {
 }
 
 type eventBus struct {
-	data map[EventType]eventBusData
-	mu   sync.Mutex
+	data smap.SMap[EventType, eventBusData]
 }
 
 func NewEventbus() EventBus {
-	data := make(map[EventType]eventBusData)
-	return &eventBus{data, sync.Mutex{}}
+	data := smap.NewSMap[EventType, eventBusData]()
+	return &eventBus{data}
 }
 
 func (bus *eventBus) Bind(etype EventType, cb callback) {
@@ -69,16 +69,13 @@ func (bus *eventBus) bind(etype EventType, cb callback, await bool) bool {
 }
 
 func (bus *eventBus) bindLogic(etype EventType, cb callback) bool {
-	// TODO : use sync map ?
-	bus.mu.Lock()
-	defer bus.mu.Unlock()
 
-	current, ok := bus.data[etype]
+	current, ok := bus.data.Load(etype)
 	if !ok {
 		// first bind/publish to this eventtype
 		callbacks := []callback{cb}
 		cbType := reflect.TypeOf(cb)
-		bus.data[etype] = eventBusData{callbacks, nil, cbType}
+		bus.data.Store(etype, eventBusData{callbacks, nil, cbType})
 	} else {
 		// a previous bind/publish has implicitly defined which data type is
 		// expected by callbacks, check if this callbacks signature matches
@@ -88,9 +85,11 @@ func (bus *eventBus) bindLogic(etype EventType, cb callback) bool {
 			log.Error(err)
 			return false
 		}
+
 		newCallbacks := append(current.callbacks, cb)
-		bus.data[etype] = eventBusData{newCallbacks, current.recent, current.cbType}
+		bus.data.Store(etype, eventBusData{newCallbacks, current.recent, current.cbType})
 	}
+
 	log.Debug("Bound func to event type : ", etype)
 
 	if current.recent != nil {
@@ -126,21 +125,20 @@ func (bus *eventBus) publish(e Event, await bool) bool {
 }
 
 func (bus *eventBus) publishLogic(e Event) bool {
-	bus.mu.Lock()
-	defer bus.mu.Unlock()
 
-	if current, ok := bus.data[e.Type]; !ok {
+	current, ok := bus.data.Load(e.Type)
+	if !ok {
 		// no previous bind/publish
 		cbSig := getFSignature(e.Data)
-		bus.data[e.Type] = eventBusData{nil, &e, cbSig}
+		bus.data.Store(e.Type, eventBusData{nil, &e, cbSig})
 	} else {
 		current.recent = &e
-		bus.data[e.Type] = current
+		bus.data.Store(e.Type, current)
 	}
 
 	// execute all callbacks for this event
 	log.Debug("Publish Event", e)
-	if current := bus.data[e.Type]; current.callbacks != nil {
+	if current.callbacks != nil {
 		for _, cb := range current.callbacks {
 			// check if event data matches expected callback arg type
 			argType := getFSignature(e.Data)
