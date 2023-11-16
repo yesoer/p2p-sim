@@ -3,8 +3,6 @@ package log
 import (
 	"flag"
 	"fmt"
-	"runtime"
-	"strconv"
 	"sync"
 )
 
@@ -66,25 +64,5 @@ func Error(err error, message ...any) {
 // Debug logs debug messages, so anything that gives information about specific
 // variables and data flow within the application
 func Debug(message ...any) {
-	file, line := trace(3)
-	trace := "\nCalled from  : " + file + ":" + strconv.Itoa(line)
-	message = append(message, trace)
 	log(blueColor, "DEBUG", DebugLevel, nil, message...)
-}
-
-func trace(depth int) (string, int) {
-	pc := make([]uintptr, 5) // Adjust the size as needed
-	n := runtime.Callers(0, pc)
-	frames := runtime.CallersFrames(pc[:n])
-
-	// Skip the first frames, which is the log file
-	f, more := frames.Next()
-	for i := 0; more && i < depth; i++ {
-		f, more = frames.Next()
-		if !more {
-			return "", 0
-		}
-	}
-
-	return f.File, f.Line
 }
