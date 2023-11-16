@@ -1,10 +1,13 @@
 package log
 
 import (
+	"flag"
 	"fmt"
 	"runtime"
 	"strconv"
 )
+
+var logLvlFlag = flag.Int("log-level", int(DebugLevel), "set loglevels info, error, debug with 1,2,3")
 
 const (
 	resetColor = "\033[0m"
@@ -27,6 +30,10 @@ const (
 
 // log prints the message with the specified color
 func log(colorCode, level string, logLevel LogLevel, optionalErr error, message ...any) {
+	if *logLvlFlag < int(logLevel) {
+		return
+	}
+
 	logPrefix := "%s[%s]%s "
 	if logLevel == ErrorLevel {
 		fmt.Printf(logPrefix+"%+v\n", colorCode, level, resetColor, optionalErr)
