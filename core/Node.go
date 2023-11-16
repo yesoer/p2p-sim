@@ -117,12 +117,16 @@ func (n *node) codeExec(codeCancel chan any, code Code, resChan chan bus.NodeOut
 	i := interp.New(interp.Options{Stdout: &userFOut, Stderr: &userFOut})
 
 	if err := i.Use(stdlib.Symbols); err != nil {
-		panic(err)
+		log.Error(err)
+		return
 	}
 
 	_, err := i.Eval(string(code))
 	if err != nil {
-		panic(err)
+		log.Error(err)
+		data := bus.NodeOutput{Log: err.Error(), Result: nil, NodeId: n.id}
+		resChan <- data
+		return
 	}
 
 	v, err := i.Eval("Run")
@@ -130,6 +134,7 @@ func (n *node) codeExec(codeCancel chan any, code Code, resChan chan bus.NodeOut
 		log.Error(err)
 		data := bus.NodeOutput{Log: err.Error(), Result: nil, NodeId: n.id}
 		resChan <- data
+		return
 	}
 
 	userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
