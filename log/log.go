@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"strconv"
+	"sync"
 )
 
 var logLvlFlag = flag.Int("log-level", int(DebugLevel), "set loglevels info, error, debug with 1,2,3")
@@ -28,6 +29,8 @@ const (
 	DebugLevel
 )
 
+var mu = sync.Mutex{}
+
 // log prints the message with the specified color
 func log(colorCode, level string, logLevel LogLevel, optionalErr error, message ...any) {
 	if *logLvlFlag < int(logLevel) {
@@ -36,13 +39,17 @@ func log(colorCode, level string, logLevel LogLevel, optionalErr error, message 
 
 	logPrefix := "%s[%s]%s "
 	if logLevel == ErrorLevel {
+		mu.Lock()
 		fmt.Printf(logPrefix+"%+v\n", colorCode, level, resetColor, optionalErr)
 		fmt.Println(message...)
+		mu.Unlock()
 		return
 	}
 
+	mu.Lock()
 	fmt.Printf(logPrefix, colorCode, level, resetColor)
 	fmt.Println(message...)
+	mu.Unlock()
 }
 
 // Info logs information messages, so anything that may be interesting to the
