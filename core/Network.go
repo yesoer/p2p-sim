@@ -43,12 +43,21 @@ func (n network) Init(eb bus.EventBus) {
 	eb.Bind(bus.StopNodesEvt, func() { n.emit(STOP) })
 
 	eb.Bind(bus.ConnectNodesEvt, func(connData bus.Connection) {
-		n.connectNodes(eb, connData.From, connData.To)
+		n.connectNodes(connData.From, connData.To)
 
+		// publish event back to gui
+		connections := n.getConnections()
+		newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
+		eb.Publish(newEvent)
 	})
 
 	eb.Bind(bus.DisconnectNodesEvt, func(connData bus.Connection) {
-		n.disconnectNodes(eb, connData.From, connData.To)
+		n.disconnectNodes(connData.From, connData.To)
+
+		// publish event back to gui
+		connections := n.getConnections()
+		newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
+		eb.Publish(newEvent)
 	})
 
 	eb.Bind(bus.NodeDataChangeEvt, func(newData bus.NodeData) {
@@ -81,7 +90,7 @@ func (n *network) resize(eb bus.EventBus, newCnt int) {
 	for _, nodeC := range oldNetworkC {
 		if nodeC.From < newCnt && nodeC.To < newCnt {
 			newNetworkC = append(newNetworkC, nodeC)
-			n.nodes[nodeC.From].ConnectTo(nodeC.To)
+			n.connectNodes(nodeC.From, nodeC.To)
 		}
 	}
 
@@ -99,22 +108,15 @@ func (n *network) setData(json any, toId int) {
 	n.nodes[toId].SetData(json)
 }
 
-func (n network) connectNodes(eb bus.EventBus, fromId, toId int) {
-	n.nodes[fromId].ConnectTo(toId)
-
-	// publish event back to gui
-	connections := n.getConnections()
-	newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
-	eb.Publish(newEvent)
+func (n network) connectNodes(fromId, toId int) {
+	c := make(chan any, 10)
+	n.nodes[fromId].AddOutputTo(toId, c)
+	n.nodes[toId].AddInputFrom(fromId, c)
 }
 
-func (n network) disconnectNodes(eb bus.EventBus, fromId, toId int) {
-	n.nodes[fromId].DisconnectFrom(toId)
-
-	// publish event back to gui
-	connections := n.getConnections()
-	newEvent := bus.Event{Type: bus.NetworkConnectionsEvt, Data: connections}
-	eb.Publish(newEvent)
+func (n network) disconnectNodes(fromId, toId int) {
+	n.nodes[fromId].DelOutputTo(toId)
+	n.nodes[toId].DelInputFrom(fromId)
 }
 
 func (n *network) setAndRunNodes(eb bus.EventBus) {
@@ -138,7 +140,7 @@ func (n *network) emit(s Signal) {
 func (n *network) getConnections() bus.Connections {
 	var res bus.Connections
 	for _, node := range n.nodes {
-		connections := node.GetConnections()
+		connections := node.GetOutConnections()
 		res = append(res, connections...)
 	}
 
