@@ -4,7 +4,11 @@ import (
 	"distributed-sys-emulator/log"
 	"distributed-sys-emulator/smap"
 	"errors"
+	"path/filepath"
 	"reflect"
+	"runtime"
+	"strconv"
+	"strings"
 )
 
 /* This eventbus is supposed to serve as a connection between the core and gui.
@@ -60,15 +64,16 @@ func (bus *eventBus) AwaitBind(etype EventType, cb callback) bool {
 // TODO : add options to allow for only once or make that a different method ?
 // TODO : we might need to be able to unbind
 func (bus *eventBus) bind(etype EventType, cb callback, await bool) bool {
+	trace := trace()
 	if await {
-		return bus.bindLogic(etype, cb)
+		return bus.bindLogic(etype, cb, trace)
 	} else {
-		go bus.bindLogic(etype, cb)
+		go bus.bindLogic(etype, cb, trace)
 	}
 	return true
 }
 
-func (bus *eventBus) bindLogic(etype EventType, cb callback) bool {
+func (bus *eventBus) bindLogic(etype EventType, cb callback, trace string) bool {
 
 	current, ok := bus.data.Load(etype)
 	if !ok {
@@ -90,7 +95,7 @@ func (bus *eventBus) bindLogic(etype EventType, cb callback) bool {
 		bus.data.Store(etype, eventBusData{newCallbacks, current.recent, current.cbType})
 	}
 
-	log.Debug("Bound func to event type : ", etype)
+	log.Debug("Bound func to event type : ", etype, trace)
 
 	if current.recent != nil {
 		cbv := reflect.ValueOf(cb)
@@ -115,16 +120,17 @@ func (bus *eventBus) AwaitPublish(e Event) bool {
 }
 
 func (bus *eventBus) publish(e Event, await bool) bool {
+	trace := trace()
 	if await {
-		return bus.publishLogic(e)
+		return bus.publishLogic(e, trace)
 	} else {
-		go bus.publishLogic(e)
+		go bus.publishLogic(e, trace)
 	}
 
 	return true
 }
 
-func (bus *eventBus) publishLogic(e Event) bool {
+func (bus *eventBus) publishLogic(e Event, trace string) bool {
 
 	current, ok := bus.data.Load(e.Type)
 	if !ok {
@@ -137,7 +143,7 @@ func (bus *eventBus) publishLogic(e Event) bool {
 	}
 
 	// execute all callbacks for this event
-	log.Debug("Publish Event", e)
+	log.Debug("Publish Event", e, " to ", len(current.callbacks), " callbacks ", trace)
 	if current.callbacks != nil {
 		for _, cb := range current.callbacks {
 			// check if event data matches expected callback arg type
@@ -170,4 +176,26 @@ func getFSignature(arg any) reflect.Type {
 	out := []reflect.Type{}
 	fSig := reflect.FuncOf(in, out, false)
 	return fSig
+}
+
+// get the last caller file that is a user file (to avoid assembly source files
+// and such) and not eventbus.go
+func trace() string {
+	pc := make([]uintptr, 100) // TODO : this fixed value of 100 is not optimal
+	n := runtime.Callers(0, pc)
+	frames := runtime.CallersFrames(pc[:n])
+
+	f, more := frames.Next()
+	for more {
+		f, more = frames.Next()
+		fileName := filepath.Base(f.File)
+		isEB := strings.HasSuffix(fileName, "eventbus.go")
+		isUserCode := strings.HasPrefix(f.File, "/Users")
+		if isUserCode && !isEB {
+			trace := "\nCalled from  : " + f.File + ":" + strconv.Itoa(f.Line)
+			return trace
+		}
+	}
+
+	return ""
 }
