@@ -118,3 +118,40 @@ func TestEventBus_Bind_Nested(t *testing.T) {
 	}
 }
 
+func TestEventBus_Unbind_Success(t *testing.T) {
+	validEvt := EventType("unbind")
+
+	validCb := func(foo string) {
+	}
+
+	bus.AwaitBind(validEvt, validCb)
+
+	unbindSucc := bus.AwaitUnbind(validEvt, validCb)
+
+	// TODO : test using publish
+	if !unbindSucc {
+		t.Error("Unbind not successful")
+	}
+
+	// also test unbinding from an event that nothing has been bound to
+	invalidEvt := EventType("invalid")
+
+	unbindSucc = bus.AwaitUnbind(invalidEvt, validCb)
+	if !unbindSucc {
+		t.Error("Unbind for non existing evt not successful")
+	}
+}
+
+func TestEventBus_Unbind_Failure(t *testing.T) {
+	validEvt := EventType("valid")
+
+	validCb := func() {}
+	invalidCb := func(foo string) {}
+
+	bus.AwaitBind(validEvt, validCb)
+
+	unbindSucc := bus.AwaitUnbind(validEvt, invalidCb)
+	if unbindSucc {
+		t.Error("unbind for non existing callback")
+	}
+}
