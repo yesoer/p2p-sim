@@ -16,14 +16,10 @@ import (
 * - immediately exec the callback on bind, if an event has been published before
 * - no constantly running process
 * - callbacks may publish
-* - implicit eventtype/eventdata matching and checking
+* - implicit eventtype/eventdata matching and checking at runtime
  */
 
 type EventType string
-
-// callbacks are stored as any so we can store varying signatures
-// type safety is ensured through the reflect package
-type callback any
 
 type Event struct {
 	Type EventType `json:"type"`
@@ -31,16 +27,18 @@ type Event struct {
 }
 
 type eventBusData struct {
-	callbacks []callback
+	callbacks []reflect.Value
 	recent    *Event
 	cbType    reflect.Type
 }
 
 type EventBus interface {
-	Bind(etype EventType, cb callback)
-	AwaitBind(etype EventType, cb callback) bool
+	Bind(etype EventType, cb any)
+	AwaitBind(etype EventType, cb any) bool
 	Publish(e Event)
 	AwaitPublish(e Event) bool
+	Unbind(etype EventType, cb any)
+	AwaitUnbind(etype EventType, cb any) bool
 }
 
 type eventBus struct {
@@ -52,18 +50,55 @@ func NewEventbus() EventBus {
 	return &eventBus{data}
 }
 
-func (bus *eventBus) Bind(etype EventType, cb callback) {
+func (bus *eventBus) Unbind(etype EventType, cb any) {
+	bus.unbind(etype, cb, false)
+}
+
+// returns whether the bind was successfull
+func (bus *eventBus) AwaitUnbind(etype EventType, cb any) bool {
+	return bus.unbind(etype, cb, true)
+}
+
+func (bus *eventBus) unbind(etype EventType, cb any, await bool) bool {
+	trace := trace()
+	if await {
+		return bus.unbindLogic(etype, cb, trace)
+	} else {
+		go bus.unbindLogic(etype, cb, trace)
+	}
+	return true
+}
+
+func (bus *eventBus) unbindLogic(etype EventType, cb any, trace string) bool {
+	current, ok := bus.data.Load(etype)
+	if !ok {
+		return true
+	}
+
+	cbv := reflect.ValueOf(cb)
+	for i, registeredCB := range current.callbacks {
+		if registeredCB.Pointer() == cbv.Pointer() {
+			current.callbacks = append(current.callbacks[:i], current.callbacks[i+1:]...)
+			bus.data.Store(etype, current)
+			log.Debug("Unbound callback from event: ", etype, trace)
+			return true
+		}
+	}
+	log.Debug("Failed unbind callback from event: ", etype, trace)
+	return false
+}
+
+func (bus *eventBus) Bind(etype EventType, cb any) {
 	bus.bind(etype, cb, false)
 }
 
 // returns whether the bind was successfull
-func (bus *eventBus) AwaitBind(etype EventType, cb callback) bool {
+func (bus *eventBus) AwaitBind(etype EventType, cb any) bool {
 	return bus.bind(etype, cb, true)
 }
 
 // TODO : add options to allow for only once or make that a different method ?
-// TODO : we might need to be able to unbind
-func (bus *eventBus) bind(etype EventType, cb callback, await bool) bool {
+func (bus *eventBus) bind(etype EventType, cb any, await bool) bool {
 	trace := trace()
 	if await {
 		return bus.bindLogic(etype, cb, trace)
@@ -73,12 +108,13 @@ func (bus *eventBus) bind(etype EventType, cb callback, await bool) bool {
 	return true
 }
 
-func (bus *eventBus) bindLogic(etype EventType, cb callback, trace string) bool {
+func (bus *eventBus) bindLogic(etype EventType, cb any, trace string) bool {
 
 	current, ok := bus.data.Load(etype)
+	cbv := reflect.ValueOf(cb)
 	if !ok {
 		// first bind/publish to this eventtype
-		callbacks := []callback{cb}
+		callbacks := []reflect.Value{cbv}
 		cbType := reflect.TypeOf(cb)
 		bus.data.Store(etype, eventBusData{callbacks, nil, cbType})
 	} else {
@@ -91,14 +127,13 @@ func (bus *eventBus) bindLogic(etype EventType, cb callback, trace string) bool 
 			return false
 		}
 
-		newCallbacks := append(current.callbacks, cb)
+		newCallbacks := append(current.callbacks, cbv)
 		bus.data.Store(etype, eventBusData{newCallbacks, current.recent, current.cbType})
 	}
 
 	log.Debug("Bound func to event type : ", etype, trace)
 
 	if current.recent != nil {
-		cbv := reflect.ValueOf(cb)
 		in := []reflect.Value{}
 		if current.recent.Data != nil {
 			arg := reflect.ValueOf(current.recent.Data)
@@ -145,7 +180,7 @@ func (bus *eventBus) publishLogic(e Event, trace string) bool {
 	// execute all callbacks for this event
 	log.Debug("Publish Event", e, " to ", len(current.callbacks), " callbacks ", trace)
 	if current.callbacks != nil {
-		for _, cb := range current.callbacks {
+		for _, cbv := range current.callbacks {
 			// check if event data matches expected callback arg type
 			argType := getFSignature(e.Data)
 			if argType != current.cbType {
@@ -154,7 +189,6 @@ func (bus *eventBus) publishLogic(e Event, trace string) bool {
 				return false
 			}
 
-			cbv := reflect.ValueOf(cb)
 			in := []reflect.Value{}
 			if e.Data != nil {
 				arg := reflect.ValueOf(e.Data)
