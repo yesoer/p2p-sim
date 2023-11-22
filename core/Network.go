@@ -130,7 +130,7 @@ func (n *network) setAndRunNodes(eb bus.EventBus) {
 }
 
 func (n *network) emit(s Signal) {
-	log.Debug("Emit signal %d to nodes", s)
+	log.Debug("Emit signal to nodes : ", s)
 	for range n.nodes {
 		n.signals <- s
 	}

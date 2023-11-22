@@ -83,12 +83,12 @@ func (n *node) SetData(json any) {
 
 // a node will run continuously, the current state can be changed using signals
 func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
-	// TODO : we need to undo this bind when the node stops
 	code := Code("")
-	eb.Bind(bus.CodeChangeEvt, func(newCode Code) {
+	updateCode := func(newCode Code) {
 		code = newCode
 		log.Debug("node ", n.id, " received code")
-	})
+	}
+	eb.Bind(bus.CodeChangeEvt, updateCode)
 
 	var codeCancel chan any
 	resChan := make(chan bus.NodeOutput)
@@ -116,8 +116,9 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		case TERM:
 			if running {
 				close(codeCancel)
-				close(resChan)
 			}
+			close(resChan)
+			eb.Unbind(bus.CodeChangeEvt, updateCode)
 			return
 		}
 	}
