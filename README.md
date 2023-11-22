@@ -3,6 +3,15 @@
 
  Not production ready but under active development.
 
+## Table of Contents
+- [Build](#build)
+- [Run](#run)
+- [Features to be Implemented](#features-to-be-implemented)
+- [Contribution](#contribution)
+  - [Branch Naming](#branch-naming)
+  - [Commit Messages](#commit-messages)
+  - [Other Tips/Notes on Contributing](#other-tipsnotes-on-contributing)
+
 ## Build
 
 ```sh
