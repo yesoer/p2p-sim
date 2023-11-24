@@ -43,6 +43,14 @@ func NewControlBar(eb bus.EventBus) *ControlBar {
 			e := bus.Event{Type: bus.StopNodesEvt, Data: nil}
 			eb.Publish(e)
 		}),
+		widget.NewButton("Debug", func() {
+			e := bus.Event{Type: bus.DebugNodesEvt, Data: nil}
+			eb.Publish(e)
+		}),
+		widget.NewButton("Continue", func() {
+			e := bus.Event{Type: bus.ContinueNodesEvt, Data: nil}
+			eb.Publish(e)
+		}),
 		nodeCntEntry,
 	)
 
