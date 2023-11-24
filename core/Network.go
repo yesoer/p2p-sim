@@ -13,6 +13,7 @@ const (
 	START Signal = 1
 	STOP  Signal = 2
 	TERM  Signal = 3
+	DEBUG Signal = 4
 )
 
 const initialNodeCnt = 2
@@ -41,6 +42,8 @@ func (n network) Init(eb bus.EventBus) {
 	eb.Bind(bus.StartNodesEvt, func() { n.emit(START) })
 
 	eb.Bind(bus.StopNodesEvt, func() { n.emit(STOP) })
+
+	eb.Bind(bus.DebugNodesEvt, func() { n.emit(DEBUG) })
 
 	eb.Bind(bus.ConnectNodesEvt, func(connData bus.Connection) {
 		n.connectNodes(connData.From, connData.To)

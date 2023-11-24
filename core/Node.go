@@ -101,7 +101,13 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 		case START:
 			if !running {
 				codeCancel = make(chan any, 1)
-				go n.codeExec(codeCancel, code, resChan)
+				go n.codeExec(eb, codeCancel, code, resChan, false)
+				running = true
+			}
+		case DEBUG:
+			if !running {
+				codeCancel = make(chan any, 1)
+				go n.codeExec(eb, codeCancel, code, resChan, true)
 				running = true
 			}
 		case STOP:
@@ -124,7 +130,8 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 	}
 }
 
-func (n *node) codeExec(codeCancel chan any, code Code, resChan chan bus.NodeOutput) {
+// TODO : since we included eb we might not need the other channels anymore ?
+func (n *node) codeExec(eb bus.EventBus, codeCancel chan any, code Code, resChan chan bus.NodeOutput, debug bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		<-codeCancel
@@ -168,7 +175,7 @@ func (n *node) codeExec(codeCancel chan any, code Code, resChan chan bus.NodeOut
 	ctx = context.WithValue(ctx, "id", n.id)
 
 	// Execute the provided function
-	userRes := userF(ctx, n.send, n.await)
+	userRes := userF(ctx, n.getSender(eb, debug), n.getAwaiter(eb, debug))
 	output := userFOut.String()
 
 	data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
@@ -183,48 +190,89 @@ func (n *node) codeExec(codeCancel chan any, code Code, resChan chan bus.NodeOut
 
 // function to be used from user code to send a message (data is the first )
 // parameter to a specific node
-// TODO : another one to send to all
-// TODO : another one to provide equation, send to all that resolve it e.g. for all even id's
-func (n *node) send(targetId int, data any) int {
-	for _, c := range n.outs {
-		if c.peer == targetId {
-			c.ch <- data
-			return 0
+// TODO : feat : send to all/many
+// TODO : feat : provide equation, send to all that resolve it e.g. for all even id's
+func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data any) int {
+	return func(targetId int, data any) int {
+		reachedNodesCnt := 0
+		for _, c := range n.outs {
+			if c.peer == targetId {
+				c.ch <- data
+				reachedNodesCnt++
+				break
+			}
 		}
+
+		if debug {
+			sendEvtData := bus.SendTask{TargetId: targetId, Data: data}
+			sendEvt := bus.Event{Type: bus.SentToEvt, Data: sendEvtData}
+			eb.Publish(sendEvt)
+
+			// TODO : this solution is ugly, need a builtin for this use case
+			// block until continue nodes is published
+			var wg sync.WaitGroup
+			wg.Add(2)
+			eb.Bind(bus.ContinueNodesEvt, func() {
+				wg.Done()
+			})
+			wg.Wait()
+		}
+
+		return reachedNodesCnt
 	}
-	return 0
 }
 
 // function to be used from user code to wait for n messages from all connected
 // peers
-func (n *node) await(cnt int) []any {
-	var wg sync.WaitGroup
-	wg.Add(cnt)
+func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
+	return func(cnt int) []any {
+		if debug {
+			awaitStart := bus.Event{Type: bus.AwaitStartEvt, Data: nil}
+			eb.Publish(awaitStart)
+		}
 
-	kill := make(chan bool, 10) // channel to send kill signals
+		var wg sync.WaitGroup
+		wg.Add(cnt)
 
-	// listen on all channels until the specified number of messages is reached
-	res := []any{}
-	log.Debug("Await ", cnt, " from ", len(n.ins), " connections")
-	for _, c := range n.ins {
-		go func(c connection, wg *sync.WaitGroup) {
-			for {
-				select {
-				case msg := <-c.ch:
-					res = append(res, msg)
-					wg.Done()
-				case <-kill:
-					return
+		kill := make(chan bool, 10) // channel to send kill signals
+
+		// listen on all channels until the specified number of messages is reached
+		res := []any{}
+		log.Debug("Await ", cnt, " from ", len(n.ins), " connections")
+		for _, c := range n.ins {
+			go func(c connection, wg *sync.WaitGroup) {
+				for {
+					select {
+					case msg := <-c.ch:
+						res = append(res, msg)
+						wg.Done()
+					case <-kill:
+						return
+					}
 				}
-			}
-		}(c, &wg)
+			}(c, &wg)
+		}
+
+		wg.Wait()
+
+		for i := 0; i <= len(n.ins)-cnt; i++ {
+			kill <- true
+		}
+
+		if debug {
+			awaitEnd := bus.Event{Type: bus.AwaitEndEvt, Data: res}
+			eb.Publish(awaitEnd)
+
+			// TODO : this solution is ugly, need a builtin for this use case
+			// block until continue nodes is published
+			var wg sync.WaitGroup
+			wg.Add(2)
+			eb.Bind(bus.ContinueNodesEvt, func() {
+				wg.Done()
+			})
+			wg.Wait()
+		}
+
+		return res
 	}
-
-	wg.Wait()
-
-	for i := 0; i <= len(n.ins)-cnt; i++ {
-		kill <- true
-	}
-
-	return res
 }
