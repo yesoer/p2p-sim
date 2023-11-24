@@ -30,6 +30,8 @@ type Connection struct {
 
 const StartNodesEvt EventType = "start-nodes"
 const StopNodesEvt EventType = "stop-nodes"
+const DebugNodesEvt EventType = "debug-nodes"
+const ContinueNodesEvt EventType = "continue-nodes"
 
 const CodeChangeEvt EventType = "code-change"
 
@@ -56,4 +58,18 @@ type NodeOutput struct {
 	Log    string
 	Result any
 	NodeId int
+}
+
+const SentToEvt EventType = "sent-to"
+
+type SendTask struct {
+	TargetId int
+	Data     any
+}
+
+const AwaitStartEvt EventType = "await-start"
+const AwaitEndEvt EventType = "await-end"
+
+type AwaitResult struct {
+	Data any
 }
