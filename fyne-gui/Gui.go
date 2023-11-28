@@ -30,7 +30,7 @@ func RunGUI(eb bus.EventBus) {
 	// CREATE COMPONENTS
 
 	// canvas
-	canvasRaster := NewCanvas(eb, window.Canvas())
+	canvasRaster := NewNetworkDiagram(eb, window.Canvas())
 
 	// connections
 	connections := NewConnectionsSelect(eb)
@@ -69,7 +69,7 @@ func RunGUI(eb bus.EventBus) {
 
 	// Layout : resizable middle split with the editor left, the output console
 	// below it and everything else on the right
-	view := container.NewBorder(execution.GetCanvasObj(), nil, nil, nil, canvasRaster.GetCanvasObj())
+	view := container.NewBorder(execution.GetCanvasObj(), nil, nil, nil, canvasRaster)
 	devenv := container.NewBorder(nil, console.GetCanvasObj(), nil, nil, editor.GetCanvasObj())
 	split := container.NewHSplit(devenv, view)
 
