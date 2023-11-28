@@ -215,6 +215,10 @@ func getFSignature(arg any) reflect.Type {
 // get the last caller file that is a user file (to avoid assembly source files
 // and such) and not eventbus.go
 func trace() string {
+	if *log.LogLvlFlag < int(log.DebugLevel) {
+		return ""
+	}
+
 	pc := make([]uintptr, 100) // TODO : this fixed value of 100 is not optimal
 	n := runtime.Callers(0, pc)
 	frames := runtime.CallersFrames(pc[:n])
