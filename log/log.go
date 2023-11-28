@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-var logLvlFlag = flag.Int("log-level", int(DebugLevel), "set loglevels info, error, debug with 1,2,3")
+var LogLvlFlag = flag.Int("log-level", int(DebugLevel), "set loglevels info, error, debug with 1,2,3")
 
 const (
 	resetColor = "\033[0m"
@@ -31,7 +31,7 @@ var mu = sync.Mutex{}
 
 // log prints the message with the specified color
 func log(colorCode, level string, logLevel LogLevel, optionalErr error, message ...any) {
-	if *logLvlFlag < int(logLevel) {
+	if *LogLvlFlag < int(logLevel) {
 		return
 	}
 
