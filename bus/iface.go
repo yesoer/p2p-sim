@@ -63,13 +63,12 @@ type NodeOutput struct {
 const SentToEvt EventType = "sent-to"
 
 type SendTask struct {
-	TargetId int
-	Data     any
+	From int
+	To   int
+	Data any
 }
 
 const AwaitStartEvt EventType = "await-start"
 const AwaitEndEvt EventType = "await-end"
 
-type AwaitResult struct {
-	Data any
-}
+type NodeId int // TODO : if we keep this, other structs should use it aswell
