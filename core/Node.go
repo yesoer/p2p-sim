@@ -175,7 +175,7 @@ func (n *node) codeExec(eb bus.EventBus, codeCancel chan any, code Code, resChan
 	ctx = context.WithValue(ctx, "id", n.id)
 
 	// Execute the provided function
-	userRes := userF(ctx, n.getSender(eb, debug), n.getAwaiter(eb, debug))
+	userRes := userF(ctx, n.getSender(eb, debug), n.getAwaiter(eb, debug)) // TODO : pass ctx to getAwaiter and getSender aswell for canceling (e.g. while blocking)
 	output := userFOut.String()
 
 	data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
@@ -204,7 +204,7 @@ func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data an
 		}
 
 		if debug {
-			sendEvtData := bus.SendTask{TargetId: targetId, Data: data}
+			sendEvtData := bus.SendTask{From: n.id, To: targetId, Data: data}
 			sendEvt := bus.Event{Type: bus.SentToEvt, Data: sendEvtData}
 			eb.Publish(sendEvt)
 
@@ -227,7 +227,7 @@ func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data an
 func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
 	return func(cnt int) []any {
 		if debug {
-			awaitStart := bus.Event{Type: bus.AwaitStartEvt, Data: nil}
+			awaitStart := bus.Event{Type: bus.AwaitStartEvt, Data: bus.NodeId(n.id)}
 			eb.Publish(awaitStart)
 		}
 
@@ -237,14 +237,17 @@ func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
 		kill := make(chan bool, 10) // channel to send kill signals
 
 		// listen on all channels until the specified number of messages is reached
-		res := []any{}
+		var res []bus.SendTask
+		var userRes []any
 		log.Debug("Await ", cnt, " from ", len(n.ins), " connections")
 		for _, c := range n.ins {
 			go func(c connection, wg *sync.WaitGroup) {
 				for {
 					select {
 					case msg := <-c.ch:
-						res = append(res, msg)
+						transmittedData := bus.SendTask{From: n.id, To: c.peer, Data: msg}
+						res = append(res, transmittedData)
+						userRes = append(userRes, transmittedData)
 						wg.Done()
 					case <-kill:
 						return
@@ -273,6 +276,6 @@ func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
 			wg.Wait()
 		}
 
-		return res
+		return userRes
 	}
 }
