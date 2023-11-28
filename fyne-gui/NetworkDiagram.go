@@ -16,12 +16,11 @@ import (
 type NetworkDiagram struct {
 	fyne.Widget
 	stateMu sync.Mutex
+
 	// state data
-	points      []point
-	buttons     []*widget.Button
-	connections bus.Connections
-	nodes       []diagramwidget.DiagramNode
-	edges       []edge
+	buttons []*widget.Button
+	nodes   []diagramwidget.DiagramNode
+	edges   []edge
 }
 
 type point struct {
@@ -54,9 +53,8 @@ func NewNetworkDiagram(eb bus.EventBus, wcanvas fyne.Canvas) *NetworkDiagram {
 	})
 
 	eb.Bind(bus.NetworkResizeEvt, func(resizeData bus.NetworkResize) {
-		networkDiag.refreshPoints(resizeData.Cnt)
 		networkDiag.refreshButtons(eb, wcanvas, resizeData.Cnt)
-		networkDiag.refreshNodes(diag)
+		networkDiag.refreshNodes(diag, resizeData.Cnt)
 		networkDiag.refreshConnections(diag, resizeData.Connections)
 	})
 
@@ -72,26 +70,6 @@ func NewNetworkDiagram(eb bus.EventBus, wcanvas fyne.Canvas) *NetworkDiagram {
 	scroll := container.NewScroll(diag)
 	networkDiag.Widget = scroll
 	return &networkDiag
-}
-
-func (networkDiag *NetworkDiagram) refreshPoints(n int) {
-	networkDiag.stateMu.Lock()
-	defer networkDiag.stateMu.Unlock()
-
-	center := point{50, 50}
-	radius := 35.
-
-	var points []point
-	angleIncrement := 2 * math.Pi / float64(n)
-	for i := 0; i < n; i++ {
-		angle := float64(i) * angleIncrement
-		x := center.X + radius*math.Cos(angle)
-		y := center.Y + radius*math.Sin(angle)
-		points = append(points, point{x, y})
-	}
-
-	networkDiag.points = points
-	networkDiag.Refresh()
 }
 
 func (networkDiag *NetworkDiagram) refreshOnContinue(diag *diagramwidget.DiagramWidget) {
@@ -170,16 +148,20 @@ func (networkDiag *NetworkDiagram) refreshButtons(eb bus.EventBus,
 	networkDiag.Refresh()
 }
 
-func (networkDiag *NetworkDiagram) refreshNodes(diag *diagramwidget.DiagramWidget) {
+func (networkDiag *NetworkDiagram) refreshNodes(
+	diag *diagramwidget.DiagramWidget, nodeCnt int) {
+
 	networkDiag.stateMu.Lock()
 	defer networkDiag.stateMu.Unlock()
+
+	points := placePointsOnCircle(nodeCnt)
 
 	// TODO : check if count changed
 	for _, n := range networkDiag.nodes {
 		diag.RemoveElement(n.GetDiagramElementID())
 	}
 
-	for i, p := range networkDiag.points {
+	for i, p := range points {
 		// needs an inital size because its not set for the widget on the
 		// initial pass
 		diagWidth := diag.Size().Width
@@ -221,8 +203,7 @@ func (networkDiag *NetworkDiagram) refreshConnections(
 	networkDiag.edges = networkDiag.edges[:0]
 
 	// add edges based on new connections
-	networkDiag.connections = connections
-	for _, c := range networkDiag.connections {
+	for _, c := range connections {
 		networkDiag.createLink(c, diag)
 	}
 	networkDiag.Refresh()
@@ -278,4 +259,20 @@ func (networkDiag *NetworkDiagram) refreshTransmitted(sendTasks []bus.SendTask) 
 		networkDiag.nodes[t.To].SetInnerObject(networkDiag.buttons[t.To])
 	}
 	networkDiag.Refresh()
+}
+
+func placePointsOnCircle(n int) []point {
+	center := point{50, 50}
+	radius := 35.
+
+	var points []point
+	angleIncrement := 2 * math.Pi / float64(n)
+	for i := 0; i < n; i++ {
+		angle := float64(i) * angleIncrement
+		x := center.X + radius*math.Cos(angle)
+		y := center.Y + radius*math.Sin(angle)
+		points = append(points, point{x, y})
+	}
+
+	return points
 }
