@@ -160,6 +160,7 @@ func (networkDiag *NetworkDiagram) refreshNodes(
 	for _, n := range networkDiag.nodes {
 		diag.RemoveElement(n.GetDiagramElementID())
 	}
+	networkDiag.nodes = networkDiag.nodes[:0]
 
 	for i, p := range points {
 		// needs an inital size because its not set for the widget on the
