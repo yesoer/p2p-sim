@@ -27,9 +27,10 @@ type Event struct {
 }
 
 type eventBusData struct {
-	callbacks []reflect.Value
+	callbacks []reflect.Value // called on event occurence and possibly once when added with the most recent event
+	waitlist  []chan bool     // can be used to await the next occurence of an event
 	recent    *Event
-	cbType    reflect.Type
+	cbType    reflect.Type // defines the expected callback signature and publish arg type
 }
 
 type EventBus interface {
@@ -39,6 +40,7 @@ type EventBus interface {
 	AwaitPublish(e Event) bool
 	Unbind(etype EventType, cb any)
 	AwaitUnbind(etype EventType, cb any) bool
+	AwaitEvent(etype EventType)
 }
 
 type eventBus struct {
@@ -48,6 +50,28 @@ type eventBus struct {
 func NewEventbus() EventBus {
 	data := smap.NewSMap[EventType, eventBusData]()
 	return &eventBus{data}
+}
+
+func (bus *eventBus) AwaitEvent(etype EventType) {
+	_, ok := bus.data.Load(etype)
+	if !ok {
+		callbacks := []reflect.Value{}
+		waitlist := []chan bool{}
+		var cbType reflect.Type
+		bus.data.Store(etype, eventBusData{callbacks, waitlist, nil, cbType})
+	}
+
+	wait := make(chan bool)
+	modifier := func(value eventBusData) eventBusData {
+		value.waitlist = append(value.waitlist, wait)
+		return value
+	}
+	bus.data.Update(etype, modifier)
+
+	trace := trace()
+	log.Debug("Await Event ", etype, trace)
+	<-wait
+	log.Debug("Continue after Event ", etype, trace)
 }
 
 func (bus *eventBus) Unbind(etype EventType, cb any) {
@@ -78,8 +102,11 @@ func (bus *eventBus) unbindLogic(etype EventType, cb any, trace string) bool {
 	cbv := reflect.ValueOf(cb)
 	for i, registeredCB := range current.callbacks {
 		if registeredCB.Pointer() == cbv.Pointer() {
-			current.callbacks = append(current.callbacks[:i], current.callbacks[i+1:]...)
-			bus.data.Store(etype, current)
+			modifier := func(value eventBusData) eventBusData {
+				value.callbacks = append(value.callbacks[:i], value.callbacks[i+1:]...)
+				return value
+			}
+			bus.data.Update(etype, modifier)
 			log.Debug("Unbound callback from event: ", etype, trace)
 			return true
 		}
@@ -115,8 +142,9 @@ func (bus *eventBus) bindLogic(etype EventType, cb any, trace string) bool {
 	if !ok {
 		// first bind/publish to this eventtype
 		callbacks := []reflect.Value{cbv}
+		waitlist := []chan bool{}
 		cbType := reflect.TypeOf(cb)
-		bus.data.Store(etype, eventBusData{callbacks, nil, cbType})
+		bus.data.Store(etype, eventBusData{callbacks, waitlist, nil, cbType})
 	} else {
 		// a previous bind/publish has implicitly defined which data type is
 		// expected by callbacks, check if this callbacks signature matches
@@ -127,8 +155,11 @@ func (bus *eventBus) bindLogic(etype EventType, cb any, trace string) bool {
 			return false
 		}
 
-		newCallbacks := append(current.callbacks, cbv)
-		bus.data.Store(etype, eventBusData{newCallbacks, current.recent, current.cbType})
+		modifier := func(value eventBusData) eventBusData {
+			value.callbacks = append(value.callbacks, cbv)
+			return value
+		}
+		bus.data.Update(etype, modifier)
 	}
 
 	log.Debug("Bound func to event type : ", etype, trace)
@@ -170,11 +201,16 @@ func (bus *eventBus) publishLogic(e Event, trace string) bool {
 	current, ok := bus.data.Load(e.Type)
 	if !ok {
 		// no previous bind/publish
+		callbacks := []reflect.Value{}
 		cbSig := getFSignature(e.Data)
-		bus.data.Store(e.Type, eventBusData{nil, &e, cbSig})
+		waitlist := []chan bool{}
+		bus.data.Store(e.Type, eventBusData{callbacks, waitlist, &e, cbSig})
 	} else {
-		current.recent = &e
-		bus.data.Store(e.Type, current)
+		modifier := func(value eventBusData) eventBusData {
+			value.recent = &e
+			return value
+		}
+		bus.data.Update(e.Type, modifier)
 	}
 
 	// execute all callbacks for this event
@@ -196,6 +232,19 @@ func (bus *eventBus) publishLogic(e Event, trace string) bool {
 			}
 			cbv.Call(in)
 		}
+	}
+
+	// notify all waiting processes
+	if current.waitlist != nil {
+		for _, w := range current.waitlist {
+			w <- true
+			close(w)
+		}
+		modifier := func(value eventBusData) eventBusData {
+			value.waitlist = value.waitlist[:0]
+			return value
+		}
+		bus.data.Update(e.Type, modifier)
 	}
 
 	return true
