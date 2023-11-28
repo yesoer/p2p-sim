@@ -208,14 +208,8 @@ func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data an
 			sendEvt := bus.Event{Type: bus.SentToEvt, Data: sendEvtData}
 			eb.Publish(sendEvt)
 
-			// TODO : this solution is ugly, need a builtin for this use case
 			// block until continue nodes is published
-			var wg sync.WaitGroup
-			wg.Add(2)
-			eb.Bind(bus.ContinueNodesEvt, func() {
-				wg.Done()
-			})
-			wg.Wait()
+			eb.AwaitEvent(bus.ContinueNodesEvt)
 		}
 
 		return reachedNodesCnt
@@ -266,14 +260,8 @@ func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
 			awaitEnd := bus.Event{Type: bus.AwaitEndEvt, Data: res}
 			eb.Publish(awaitEnd)
 
-			// TODO : this solution is ugly, need a builtin for this use case
 			// block until continue nodes is published
-			var wg sync.WaitGroup
-			wg.Add(2)
-			eb.Bind(bus.ContinueNodesEvt, func() {
-				wg.Done()
-			})
-			wg.Wait()
+			eb.AwaitEvent(bus.ContinueNodesEvt)
 		}
 
 		return userRes
