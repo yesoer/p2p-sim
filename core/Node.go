@@ -165,12 +165,17 @@ func (n *node) codeExec(eb bus.EventBus, codeCancel chan any, code Code, resChan
 	userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
 
 	// make node specific data accessible
-	neighborsIds := make([]int, len(n.outs))
+	outNeighborsIds := make([]int, len(n.outs))
 	for i, c := range n.outs {
-		neighborsIds[i] = c.peer
+		outNeighborsIds[i] = c.peer
+	}
+	inNeighborsIds := make([]int, len(n.ins))
+	for i, c := range n.ins {
+		inNeighborsIds[i] = c.peer
 	}
 	ctx = context.WithValue(ctx, "custom", n.data)
-	ctx = context.WithValue(ctx, "outgoing-connections", neighborsIds)
+	ctx = context.WithValue(ctx, "out-neighbors", outNeighborsIds)
+	ctx = context.WithValue(ctx, "in-neighbors", inNeighborsIds)
 	ctx = context.WithValue(ctx, "id", n.id)
 
 	// Execute the provided function
