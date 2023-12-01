@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/log"
-	"sync"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -208,7 +207,6 @@ func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data an
 			sendEvt := bus.Event{Type: bus.SentToEvt, Data: sendEvtData}
 			eb.Publish(sendEvt)
 
-			// block until continue nodes is published
 			eb.AwaitEvent(bus.ContinueNodesEvt)
 		}
 
@@ -225,45 +223,55 @@ func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
 			eb.Publish(awaitStart)
 		}
 
-		var wg sync.WaitGroup
-		wg.Add(cnt)
-
-		kill := make(chan bool, 10) // channel to send kill signals
-
-		// listen on all channels until the specified number of messages is reached
-		var res []bus.SendTask
-		var userRes []any
 		log.Debug("Await ", cnt, " from ", len(n.ins), " connections")
-		for _, c := range n.ins {
-			go func(c connection, wg *sync.WaitGroup) {
-				for {
-					select {
-					case msg := <-c.ch:
-						transmittedData := bus.SendTask{From: n.id, To: c.peer, Data: msg}
-						res = append(res, transmittedData)
-						userRes = append(userRes, transmittedData)
-						wg.Done()
-					case <-kill:
-						return
-					}
-				}
-			}(c, &wg)
-		}
-
-		wg.Wait()
-
-		for i := 0; i <= len(n.ins)-cnt; i++ {
-			kill <- true
-		}
+		res, userRes := n.receiveAll(cnt)
 
 		if debug {
 			awaitEnd := bus.Event{Type: bus.AwaitEndEvt, Data: res}
 			eb.Publish(awaitEnd)
 
-			// block until continue nodes is published
 			eb.AwaitEvent(bus.ContinueNodesEvt)
 		}
 
 		return userRes
+	}
+}
+
+func (n *node) receiveAll(cnt int) ([]bus.SendTask, []any) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	resChan := make(chan bus.SendTask, cnt)
+	defer close(resChan)
+
+	for _, c := range n.ins {
+		go n.receive(ctx, c, resChan)
+	}
+
+	// accumulate results
+	// TODO : I feel like two slices shouldn't be necessary
+	res := make([]bus.SendTask, 0, cnt)
+	userRes := make([]any, 0, cnt)
+	for i := 0; i < cnt; i++ {
+		response := <-resChan
+		res = append(res, response)
+		userRes = append(userRes, response)
+	}
+
+	return res, userRes
+}
+
+func (n *node) receive(ctx context.Context, c connection, res chan bus.SendTask) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-c.ch:
+			transmittedData := bus.SendTask{From: n.id, To: c.peer, Data: msg}
+			select {
+			case res <- transmittedData:
+			default: /* channel possibly has been closed */
+			}
+		}
 	}
 }
