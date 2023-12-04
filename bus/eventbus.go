@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"context"
 	"distributed-sys-emulator/log"
 	"distributed-sys-emulator/smap"
 	"errors"
@@ -40,7 +41,7 @@ type EventBus interface {
 	AwaitPublish(e Event) bool
 	Unbind(etype EventType, cb any)
 	AwaitUnbind(etype EventType, cb any) bool
-	AwaitEvent(etype EventType)
+	AwaitEvent(ctx context.Context, etype EventType)
 }
 
 type eventBus struct {
@@ -52,7 +53,7 @@ func NewEventbus() EventBus {
 	return &eventBus{data}
 }
 
-func (bus *eventBus) AwaitEvent(etype EventType) {
+func (bus *eventBus) AwaitEvent(ctx context.Context, etype EventType) {
 	_, ok := bus.data.Load(etype)
 	if !ok {
 		callbacks := []reflect.Value{}
@@ -70,8 +71,13 @@ func (bus *eventBus) AwaitEvent(etype EventType) {
 
 	trace := trace()
 	log.Debug("Await Event ", etype, trace)
-	<-wait
-	log.Debug("Continue after Event ", etype, trace)
+	select {
+	case <-ctx.Done():
+		log.Debug("Cancel awaiting Event ", etype, trace)
+	case <-wait:
+		log.Debug("Continue after Event ", etype, trace)
+	}
+	return
 }
 
 func (bus *eventBus) Unbind(etype EventType, cb any) {
