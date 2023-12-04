@@ -179,7 +179,7 @@ func (n *node) codeExec(eb bus.EventBus, codeCancel chan any, code Code, resChan
 	ctx = context.WithValue(ctx, "id", n.id)
 
 	// Execute the provided function
-	userRes := userF(ctx, n.getSender(eb, debug), n.getAwaiter(eb, debug)) // TODO : pass ctx to getAwaiter and getSender aswell for canceling (e.g. while blocking)
+	userRes := userF(ctx, n.getSender(ctx, eb, debug), n.getAwaiter(ctx, eb, debug)) // TODO : pass ctx to getAwaiter and getSender aswell for canceling (e.g. while blocking)
 	output := userFOut.String()
 
 	data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
@@ -196,7 +196,7 @@ func (n *node) codeExec(eb bus.EventBus, codeCancel chan any, code Code, resChan
 // parameter to a specific node
 // TODO : feat : send to all/many
 // TODO : feat : provide equation, send to all that resolve it e.g. for all even id's
-func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data any) int {
+func (n *node) getSender(ctx context.Context, eb bus.EventBus, debug bool) func(targetId int, data any) int {
 	return func(targetId int, data any) int {
 		reachedNodesCnt := 0
 		for _, c := range n.outs {
@@ -212,7 +212,7 @@ func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data an
 			sendEvt := bus.Event{Type: bus.SentToEvt, Data: sendEvtData}
 			eb.Publish(sendEvt)
 
-			eb.AwaitEvent(bus.ContinueNodesEvt)
+			eb.AwaitEvent(ctx, bus.ContinueNodesEvt)
 		}
 
 		return reachedNodesCnt
@@ -221,7 +221,7 @@ func (n *node) getSender(eb bus.EventBus, debug bool) func(targetId int, data an
 
 // function to be used from user code to wait for n messages from all connected
 // peers
-func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
+func (n *node) getAwaiter(ctx context.Context, eb bus.EventBus, debug bool) func(cnt int) []any {
 	return func(cnt int) []any {
 		if debug {
 			awaitStart := bus.Event{Type: bus.AwaitStartEvt, Data: bus.NodeId(n.id)}
@@ -235,7 +235,7 @@ func (n *node) getAwaiter(eb bus.EventBus, debug bool) func(cnt int) []any {
 			awaitEnd := bus.Event{Type: bus.AwaitEndEvt, Data: res}
 			eb.Publish(awaitEnd)
 
-			eb.AwaitEvent(bus.ContinueNodesEvt)
+			eb.AwaitEvent(ctx, bus.ContinueNodesEvt)
 		}
 
 		return userRes
