@@ -34,23 +34,58 @@ func NewControlBar(eb bus.EventBus) *ControlBar {
 		nodeCntEntry.Refresh()
 	})
 
+	var startButton, stopButton, debugButton, continueButton *widget.Button
+
+	startButton = widget.NewButton("Start", func() {
+		e := bus.Event{Type: bus.StartNodesEvt, Data: nil}
+		eb.Publish(e)
+
+		debugButton.Disable()
+		startButton.Disable()
+		continueButton.Disable()
+		stopButton.Enable()
+	})
+
+	stopButton = widget.NewButton("Stop", func() {
+		e := bus.Event{Type: bus.StopNodesEvt, Data: nil}
+		eb.Publish(e)
+
+		stopButton.Disable()
+		debugButton.Disable()
+		debugButton.Enable()
+		startButton.Enable()
+	})
+
+	debugButton = widget.NewButton("Debug", func() {
+		e := bus.Event{Type: bus.DebugNodesEvt, Data: nil}
+		eb.Publish(e)
+
+		startButton.Disable()
+		debugButton.Disable()
+		stopButton.Enable()
+		continueButton.Enable()
+	})
+
+	continueButton = widget.NewButton("Continue", func() {
+		e := bus.Event{Type: bus.ContinueNodesEvt, Data: nil}
+		eb.Publish(e)
+
+		stopButton.Disable()
+		debugButton.Disable()
+		startButton.Disable()
+		debugButton.Disable()
+	})
+
+	continueButton.Disable()
+	stopButton.Disable()
+
 	execution := container.NewHBox(
-		widget.NewButton("Start", func() {
-			e := bus.Event{Type: bus.StartNodesEvt, Data: nil}
-			eb.Publish(e)
-		}),
-		widget.NewButton("Stop", func() {
-			e := bus.Event{Type: bus.StopNodesEvt, Data: nil}
-			eb.Publish(e)
-		}),
-		widget.NewButton("Debug", func() {
-			e := bus.Event{Type: bus.DebugNodesEvt, Data: nil}
-			eb.Publish(e)
-		}),
-		widget.NewButton("Continue", func() {
-			e := bus.Event{Type: bus.ContinueNodesEvt, Data: nil}
-			eb.Publish(e)
-		}),
+		startButton,
+		stopButton,
+		widget.NewSeparator(),
+		debugButton,
+		continueButton,
+		widget.NewSeparator(),
 		nodeCntEntry,
 	)
 
@@ -58,13 +93,10 @@ func NewControlBar(eb bus.EventBus) *ControlBar {
 }
 
 func extractWholeNumbers(input string) string {
-	// Define a regular expression to match whole numbers
 	re := regexp.MustCompile(`[0-9]+`)
 
-	// Find all matches in the input string
 	matches := re.FindAllString(input, -1)
 
-	// Join the matches into a single string
 	result := ""
 	if len(matches) > 0 {
 		result = matches[0]
