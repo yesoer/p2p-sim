@@ -25,8 +25,10 @@ func Run(ctx context.Context, fSend sendFunc, fAwait awaitFunc) any {
 			case <-ctx.Done():
 				return
 			default:
-				awaitRes := fAwait(len(inNeighbors))
-				fmt.Println("awaitRes ", awaitRes)
+				if len(inNeighbors) > 0 {
+					awaitRes := fAwait(len(inNeighbors))
+					fmt.Println("awaitRes ", awaitRes)
+				}
 			}
 		}
 	}()
