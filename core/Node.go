@@ -179,7 +179,7 @@ func (n *node) codeExec(eb bus.EventBus, codeCancel chan any, code Code, resChan
 	ctx = context.WithValue(ctx, "id", n.id)
 
 	// Execute the provided function
-	userRes := userF(ctx, n.getSender(ctx, eb, debug), n.getAwaiter(ctx, eb, debug)) // TODO : pass ctx to getAwaiter and getSender aswell for canceling (e.g. while blocking)
+	userRes := userF(ctx, n.getSender(ctx, eb, debug), n.getAwaiter(ctx, eb, debug))
 	output := userFOut.String()
 
 	data := bus.NodeOutput{Log: output, Result: userRes, NodeId: n.id}
