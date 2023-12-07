@@ -17,7 +17,7 @@ func NewModal(content fyne.CanvasObject, canvas fyne.Canvas) Modal {
 		popup.Hide()
 	})
 	topBar := container.NewHBox(closeBtn, layout.NewSpacer())
-	wrapper := container.NewVBox(topBar, content)
+	wrapper := container.NewBorder(topBar, nil, nil, nil, content)
 	popup = widget.NewModalPopUp(wrapper, canvas)
 
 	return Modal{popup}
