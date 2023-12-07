@@ -11,6 +11,12 @@ package bus
 * - The data structures names should describe the abstract information they carry.
     They do not need to be named with relation to their events or the entire
 	eventbus because they might be useful in other, unrelated places aswell.
+  - Declare wrappers even for simple data e.g. NodeId for int. Since the parameter
+    types in Bind callbacks cannot be checked by the compiler, switching from int
+	to a more complex type later on would not be caught and refactoring becomes
+	increasingly complex and error prone. By wrapping types the parameter will
+	always be correct and changes will cause errors in the callbacks body which
+	are then caught by the compiler.
 */
 
 const NodeDataChangeEvt EventType = "node-data-change"
@@ -72,3 +78,7 @@ const AwaitStartEvt EventType = "await-start"
 const AwaitEndEvt EventType = "await-end"
 
 type NodeId int // TODO : if we keep this, other structs should use it aswell
+
+const FileOpenEvt EventType = "file-open"
+
+type FilePath string

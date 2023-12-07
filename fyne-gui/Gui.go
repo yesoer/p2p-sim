@@ -3,12 +3,17 @@ package fynegui
 import (
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/log"
+	"path"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/storage"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	xwidget "fyne.io/x/fyne/widget"
 )
 
 type Component interface {
@@ -40,9 +45,9 @@ func RunGUI(eb bus.EventBus) {
 
 	// create an editor for the nodes behaviour
 	workingDir := "."
-	path := workingDir + "/code.go"
+	pth := workingDir + "/code.go"
 
-	editor := NewTextEditor(path, window, eb)
+	editor := NewTextEditor(pth, window, eb)
 
 	console := NewConsole(eb)
 
@@ -58,6 +63,24 @@ func RunGUI(eb bus.EventBus) {
 	})
 	execution.Add(connect)
 
+	// explorer
+	saveIcon := theme.DocumentSaveIcon()
+	basePath := "./"
+	tree := xwidget.NewFileTree(storage.NewFileURI(basePath))
+	tree.OnSelected = func(rawUrl string) {
+		pth := strings.Replace(rawUrl, "file://", "", 1)
+		relativePath := bus.FilePath(path.Join(basePath, pth))
+		e := bus.Event{Type: bus.FileOpenEvt, Data: relativePath}
+		eb.Publish(e)
+	}
+
+	content := NewModal(tree, wcanvas)
+	btn := widget.NewButtonWithIcon("", saveIcon, func() {
+		content.Resize(fyne.NewSize(300, 300))
+		content.Show()
+	})
+	editorTop := container.NewHBox(btn)
+
 	// save edited file
 	// TODO : trigger on editor, not canvas/else
 	// TODO : can we get 'command' to work ?
@@ -70,7 +93,7 @@ func RunGUI(eb bus.EventBus) {
 	// Layout : resizable middle split with the editor left, the output console
 	// below it and everything else on the right
 	view := container.NewBorder(execution.GetCanvasObj(), nil, nil, nil, canvasRaster)
-	devenv := container.NewBorder(nil, console.GetCanvasObj(), nil, nil, editor.GetCanvasObj())
+	devenv := container.NewBorder(editorTop, console.GetCanvasObj(), nil, nil, editor.GetCanvasObj())
 	split := container.NewHSplit(devenv, view)
 
 	window.SetContent(split)
