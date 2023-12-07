@@ -17,8 +17,7 @@ var _ Component = (*Editor)(nil)
 
 type Editor struct {
 	*widget.Entry
-	path   string
-	edited bool
+	path string
 }
 
 func NewTextEditor(path string, _ fyne.Window, eb bus.EventBus) *Editor {
@@ -26,13 +25,6 @@ func NewTextEditor(path string, _ fyne.Window, eb bus.EventBus) *Editor {
 	input.TextStyle.Monospace = true
 	input.Wrapping = fyne.TextTruncate
 	input.PlaceHolder = "Type"
-
-	changeCB := func(e *Editor) {
-		text := e.Content()
-		code := core.Code(text)
-		evt := bus.Event{Type: bus.CodeChangeEvt, Data: code}
-		eb.Publish(evt)
-	}
 
 	// read code from disk
 	b, err := os.ReadFile(path)
@@ -45,21 +37,34 @@ func NewTextEditor(path string, _ fyne.Window, eb bus.EventBus) *Editor {
 	e := bus.Event{Type: bus.CodeChangeEvt, Data: code}
 	eb.Publish(e)
 
-	editor := Editor{input, path, false}
+	// make sure to send editor changes to core
+	changeCB := func(e *Editor) {
+		text := e.Content()
+		code := core.Code(text)
+		evt := bus.Event{Type: bus.CodeChangeEvt, Data: code}
+		eb.Publish(evt)
+	}
+
+	editor := Editor{input, path}
 	editor.OnChanged = func(_ string) {
 		changeCB(&editor)
-		editor.edited = true
 	}
+
+	// process changes from the file explorer
+	eb.Bind(bus.FileOpenEvt, func(path bus.FilePath) {
+		b, err := os.ReadFile(string(path))
+		if err == nil {
+			input.SetText(string(b))
+			return
+		}
+		log.Error(err)
+	})
 
 	return &editor
 }
 
 func (e *Editor) GetCanvasObj() fyne.CanvasObject {
 	return e.Entry
-}
-
-func (e *Editor) Changed() bool {
-	return e.edited
 }
 
 func (e *Editor) Content() string {
@@ -71,6 +76,4 @@ func (e *Editor) Save() {
 	if err != nil {
 		log.Error(err)
 	}
-
-	e.edited = false
 }

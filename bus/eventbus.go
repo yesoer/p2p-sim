@@ -142,7 +142,6 @@ func (bus *eventBus) bind(etype EventType, cb any, await bool) bool {
 }
 
 func (bus *eventBus) bindLogic(etype EventType, cb any, trace string) bool {
-
 	current, ok := bus.data.Load(etype)
 	cbv := reflect.ValueOf(cb)
 	if !ok {
