@@ -54,21 +54,16 @@ func NewEventbus() EventBus {
 }
 
 func (bus *eventBus) AwaitEvent(ctx context.Context, etype EventType) {
-	_, ok := bus.data.Load(etype)
-	if !ok {
-		callbacks := []reflect.Value{}
-		waitlist := []chan bool{}
-		var cbType reflect.Type
-		bus.data.Store(etype, eventBusData{callbacks, waitlist, nil, cbType})
-	}
-
 	wait := make(chan bool)
-	modifier := func(value eventBusData) eventBusData {
+
+	// append the wait channel
+	modifier := func(value eventBusData) (eventBusData, bool) {
 		value.waitlist = append(value.waitlist, wait)
-		return value
+		return value, true
 	}
 	bus.data.Update(etype, modifier)
 
+	// await event occurence or context finalization
 	trace := trace()
 	log.Debug("Await Event ", etype, trace)
 	select {
@@ -108,10 +103,11 @@ func (bus *eventBus) unbindLogic(etype EventType, cb any, trace string) bool {
 	cbv := reflect.ValueOf(cb)
 	for i, registeredCB := range current.callbacks {
 		if registeredCB.Pointer() == cbv.Pointer() {
-			modifier := func(value eventBusData) eventBusData {
+			modifier := func(value eventBusData) (eventBusData, bool) {
 				value.callbacks = append(value.callbacks[:i], value.callbacks[i+1:]...)
-				return value
+				return value, true
 			}
+
 			bus.data.Update(etype, modifier)
 			log.Debug("Unbound callback from event: ", etype, trace)
 			return true
@@ -142,33 +138,30 @@ func (bus *eventBus) bind(etype EventType, cb any, await bool) bool {
 }
 
 func (bus *eventBus) bindLogic(etype EventType, cb any, trace string) bool {
-	current, ok := bus.data.Load(etype)
 	cbv := reflect.ValueOf(cb)
-	if !ok {
-		// first bind/publish to this eventtype
-		callbacks := []reflect.Value{cbv}
-		waitlist := []chan bool{}
-		cbType := reflect.TypeOf(cb)
-		bus.data.Store(etype, eventBusData{callbacks, waitlist, nil, cbType})
-	} else {
-		// a previous bind/publish has implicitly defined which data type is
-		// expected by callbacks, check if this callbacks signature matches
-		match := current.cbType == reflect.TypeOf(cb)
-		if !match {
-			err := errors.New("the provided callback does not match the expected arg type")
-			log.Error(err)
-			return false
+
+	// append callback
+	modifier := func(value eventBusData) (eventBusData, bool) {
+		if value.cbType == nil {
+			value.cbType = reflect.TypeOf(cb)
 		}
 
-		modifier := func(value eventBusData) eventBusData {
-			value.callbacks = append(value.callbacks, cbv)
-			return value
+		if value.cbType != reflect.TypeOf(cb) {
+			return value, false
 		}
-		bus.data.Update(etype, modifier)
+
+		value.callbacks = append(value.callbacks, cbv)
+		return value, true
+	}
+
+	current, ok := bus.data.Update(etype, modifier)
+	if !ok {
+		return false
 	}
 
 	log.Debug("Bound func to event type : ", etype, trace)
 
+	// execute callback with most recent event, if present
 	if current.recent != nil {
 		in := []reflect.Value{}
 		if current.recent.Data != nil {
@@ -203,28 +196,28 @@ func (bus *eventBus) publish(e Event, await bool) bool {
 
 func (bus *eventBus) publishLogic(e Event, trace string) bool {
 
-	current, ok := bus.data.Load(e.Type)
-	if !ok {
-		// no previous bind/publish
-		callbacks := []reflect.Value{}
-		cbSig := getFSignature(e.Data)
-		waitlist := []chan bool{}
-		bus.data.Store(e.Type, eventBusData{callbacks, waitlist, &e, cbSig})
-	} else {
-		modifier := func(value eventBusData) eventBusData {
-			value.recent = &e
-			return value
+	// set the most recent event
+	cbSig := getFSignature(e.Data)
+	modifier := func(value eventBusData) (eventBusData, bool) {
+		if value.cbType == nil {
+			value.cbType = cbSig
 		}
-		bus.data.Update(e.Type, modifier)
+
+		if value.cbType != cbSig {
+			return value, false
+		}
+
+		value.recent = &e
+		return value, true
 	}
+	current, _ := bus.data.Update(e.Type, modifier)
 
 	// execute all callbacks for this event
 	log.Debug("Publish Event", e, " to ", len(current.callbacks), " callbacks ", trace)
 	if current.callbacks != nil {
 		for _, cbv := range current.callbacks {
 			// check if event data matches expected callback arg type
-			argType := getFSignature(e.Data)
-			if argType != current.cbType {
+			if cbSig != current.cbType {
 				err := errors.New("event data type does not match callback arg type")
 				log.Error(err)
 				return false
@@ -245,9 +238,9 @@ func (bus *eventBus) publishLogic(e Event, trace string) bool {
 			w <- true
 			close(w)
 		}
-		modifier := func(value eventBusData) eventBusData {
+		modifier := func(value eventBusData) (eventBusData, bool) {
 			value.waitlist = value.waitlist[:0]
-			return value
+			return value, true
 		}
 		bus.data.Update(e.Type, modifier)
 	}
