@@ -1,2 +1,4 @@
 # ignore binary
 main
+
+.DS_Store
