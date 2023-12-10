@@ -10,8 +10,7 @@ import (
 
 type SMap[K comparable, V any] interface {
 	Load(key K) (V, bool)
-	Store(key K, value V)
-	Update(key K, modifier func(value V) V) bool
+	Update(key K, modifier func(value V) (V, bool)) (V, bool)
 	Delete(key K)
 }
 
@@ -32,15 +31,6 @@ func (s *smap[K, V]) Load(key K) (V, bool) {
 	return v, ok
 }
 
-// This function overwrites whatever is stored under "key", be careful with
-// overwriting because it could lead to data loss. You probably only want to
-// use this for the first write. Else consider Update()
-func (s *smap[K, V]) Store(key K, value V) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.m[key] = value
-}
-
 func (s *smap[K, V]) Delete(key K) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -48,15 +38,19 @@ func (s *smap[K, V]) Delete(key K) {
 }
 
 // Define a modifier function to update the value under K
-func (s *smap[K, V]) Update(key K, modifier func(value V) V) bool {
+func (s *smap[K, V]) Update(key K, modifier func(value V) (V, bool)) (V, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if v, ok := s.m[key]; ok {
-		newV := modifier(v)
-		s.m[key] = newV
-		return true
+	var newV V
+	v := s.m[key]
+	newV, ok := modifier(v)
+
+	if !ok {
+		return newV, false
 	}
 
-	return false
+	s.m[key] = newV
+
+	return newV, true
 }
