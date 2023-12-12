@@ -41,8 +41,8 @@ func Run(ctx context.Context, fSend sendFunc, fAwait awaitFunc) any {
 		default:
 			time.Sleep(time.Second * 1)
 			if ok {
-				fmt.Println("send")
 				for _, c := range outNeighbors {
+					fmt.Println("send")
 					fSend(c, "data")
 				}
 			}
