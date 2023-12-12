@@ -9,6 +9,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"fyne.io/x/fyne/widget/diagramwidget"
 )
@@ -19,19 +20,28 @@ type NetworkDiagram struct {
 
 	// state data
 	buttons []*widget.Button
-	nodes   []diagramwidget.DiagramNode
+	nodes   []node
 	edges   []edge
 }
 
-type point struct {
-	X float64
-	Y float64
+var stopIcon = widget.NewIcon(theme.MediaStopIcon())
+var playIcon = widget.NewIcon(theme.MediaPlayIcon()) // TODO : not used as of now
+
+type node struct {
+	diagramwidget.DiagramNode
+	isAwaiting bool
+	isPaused   bool
 }
 
 type edge struct {
-	From int
-	To   int
 	*diagramwidget.BaseDiagramLink
+	from int
+	to   int
+}
+
+type point struct {
+	x float64
+	y float64
 }
 
 func NewNetworkDiagram(eb bus.EventBus, wcanvas fyne.Canvas) *NetworkDiagram {
@@ -72,20 +82,29 @@ func NewNetworkDiagram(eb bus.EventBus, wcanvas fyne.Canvas) *NetworkDiagram {
 	return &networkDiag
 }
 
+// when paused in debug mode call this function to refresh on continue
 func (networkDiag *NetworkDiagram) refreshOnContinue(diag *diagramwidget.DiagramWidget) {
 	networkDiag.stateMu.Lock()
 	defer networkDiag.stateMu.Unlock()
 
-	// reset source and midpoint decorations by removing and recreating edges
-	// TODO : add functionality to remove decorations directly to fyne-x
+	// reset edge source and midpoint decorations
 	for _, e := range networkDiag.edges {
+		// TODO : add functionality to remove decorations directly to fyne-x
 		diag.RemoveElement(e.GetDiagramElementID())
-		c := bus.Connection{From: e.From, To: e.To}
+		c := bus.Connection{From: e.from, To: e.to}
 		networkDiag.createLink(c, diag)
 	}
+
+	// set nodes to not-paused
+	for nid, n := range networkDiag.nodes {
+		n.isPaused = false
+		networkDiag.setInnerObj(bus.NodeId(nid))
+	}
+
 	networkDiag.Refresh()
 }
 
+// set buttons, matched to corresponding nodes
 func (networkDiag *NetworkDiagram) refreshButtons(eb bus.EventBus,
 	wcanvas fyne.Canvas, nodeCnt int) {
 
@@ -145,9 +164,9 @@ func (networkDiag *NetworkDiagram) refreshButtons(eb bus.EventBus,
 	}
 
 	networkDiag.buttons = buttons
-	networkDiag.Refresh()
 }
 
+// refresh nodes depending on the new node count
 func (networkDiag *NetworkDiagram) refreshNodes(
 	diag *diagramwidget.DiagramWidget, nodeCnt int) {
 
@@ -179,18 +198,20 @@ func (networkDiag *NetworkDiagram) refreshNodes(
 		ratioh := diagHeight / 100
 
 		// draw node
-		x := ratiow * float32(p.X*.5)
-		y := ratioh * float32(p.Y*.5)
+		x := ratiow * float32(p.x*.5)
+		y := ratioh * float32(p.y*.5)
 
 		nodeName := "Node" + strconv.Itoa(i)
 		nodeButton := networkDiag.buttons[i]
-		node := diagramwidget.NewDiagramNode(diag, nodeButton, "Id:"+nodeName)
-		node.Move(fyne.Position{X: x, Y: y})
-		networkDiag.nodes = append(networkDiag.nodes, node)
+		diagNode := diagramwidget.NewDiagramNode(diag, nodeButton, "Id:"+nodeName)
+		diagNode.Move(fyne.Position{X: x, Y: y})
+		newNode := node{diagNode, false, false}
+		networkDiag.nodes = append(networkDiag.nodes, newNode)
 	}
 	networkDiag.Refresh()
 }
 
+// recreates all links depending on the given connections
 func (networkDiag *NetworkDiagram) refreshConnections(
 	diag *diagramwidget.DiagramWidget, connections bus.Connections) {
 
@@ -210,39 +231,31 @@ func (networkDiag *NetworkDiagram) refreshConnections(
 	networkDiag.Refresh()
 }
 
-func (networkDiag *NetworkDiagram) createLink(c bus.Connection, diag *diagramwidget.DiagramWidget) {
-	linkName := "Link" + strconv.Itoa(c.From) + ":" + strconv.Itoa(c.To)
-	link := diagramwidget.NewDiagramLink(diag, linkName)
-	link.SetSourcePad(networkDiag.nodes[c.From].GetEdgePad())
-	link.SetTargetPad(networkDiag.nodes[c.To].GetEdgePad())
-	link.AddTargetDecoration(diagramwidget.NewArrowhead())
-	edge := edge{c.From, c.To, link}
-	networkDiag.edges = append(networkDiag.edges, edge)
-}
-
+// when a node has sent data (no matter whether it was transmitted successfully)
 func (networkDiag *NetworkDiagram) refreshNodeSent(task bus.SendTask) {
 	networkDiag.stateMu.Lock()
 	defer networkDiag.stateMu.Unlock()
 
 	for _, e := range networkDiag.edges {
-		if e.From == task.From && e.To == task.To {
-			id := "Sent:" + strconv.Itoa(e.From) + ":" + strconv.Itoa(e.To)
+		if e.from == task.From && e.to == task.To {
+			id := "Sent:" + strconv.Itoa(e.from) + ":" + strconv.Itoa(e.to)
 			e.AddSourceAnchoredText(id, "sending")
 		}
 	}
 	networkDiag.Refresh()
 }
 
+// when a node starts awaiting
 func (networkDiag *NetworkDiagram) refreshNodeAwait(id bus.NodeId) {
 	networkDiag.stateMu.Lock()
 	defer networkDiag.stateMu.Unlock()
 
-	status := widget.NewLabel("Awaiting")
-	obj := container.NewHBox(status, networkDiag.buttons[id])
-	networkDiag.nodes[id].SetInnerObject(obj)
+	networkDiag.nodes[id].isAwaiting = true
+	networkDiag.setInnerObj(id)
 	networkDiag.Refresh()
 }
 
+// when successful transmissions have been received
 func (networkDiag *NetworkDiagram) refreshTransmitted(sendTasks []bus.SendTask) {
 	networkDiag.stateMu.Lock()
 	defer networkDiag.stateMu.Unlock()
@@ -250,18 +263,56 @@ func (networkDiag *NetworkDiagram) refreshTransmitted(sendTasks []bus.SendTask) 
 	for _, t := range sendTasks {
 		// display synced data
 		for _, e := range networkDiag.edges {
-			if t.From == e.From && t.To == e.To {
+			if t.From == e.from && t.To == e.to {
 				dataStr, _ := json.Marshal(t.Data)
 				e.AddMidpointAnchoredText("sendTask", string(dataStr))
 			}
 		}
 
-		// remove awaiting status
-		networkDiag.nodes[t.To].SetInnerObject(networkDiag.buttons[t.To])
+		// remove awaiting status on receiver and set both nodes to paused
+		networkDiag.nodes[t.From].isPaused = true
+		networkDiag.nodes[t.To].isPaused = true
+		networkDiag.nodes[t.To].isAwaiting = false
+		networkDiag.setInnerObj(bus.NodeId(t.To))
+		networkDiag.setInnerObj(bus.NodeId(t.From))
 	}
 	networkDiag.Refresh()
 }
 
+// creates a link between two nodes representing a conneciton
+func (networkDiag *NetworkDiagram) createLink(c bus.Connection, diag *diagramwidget.DiagramWidget) {
+	linkName := "Link" + strconv.Itoa(c.From) + ":" + strconv.Itoa(c.To)
+	link := diagramwidget.NewDiagramLink(diag, linkName)
+	link.SetSourcePad(networkDiag.nodes[c.From].GetEdgePad())
+	link.SetTargetPad(networkDiag.nodes[c.To].GetEdgePad())
+	link.AddTargetDecoration(diagramwidget.NewArrowhead())
+	edge := edge{link, c.From, c.To}
+	networkDiag.edges = append(networkDiag.edges, edge)
+}
+
+// sets the inner object of the specified node (including statuses etc.)
+func (networkDiag *NetworkDiagram) setInnerObj(nodeId bus.NodeId) {
+	innerObj := container.NewHBox()
+
+	runningIcon := playIcon
+	if networkDiag.nodes[nodeId].isPaused {
+		runningIcon = stopIcon
+	}
+	innerObj.Add(runningIcon)
+
+	if networkDiag.nodes[nodeId].isAwaiting {
+		innerObj.Add(widget.NewLabel("Awaiting"))
+	}
+
+	btn := networkDiag.buttons[nodeId]
+	innerObj.Add(btn)
+
+	networkDiag.nodes[nodeId].SetInnerObject(innerObj)
+}
+
+// given n points, evenly distribute them on a cricle and return their positions
+// assuming the circle is placed in a 100x100 square (50,50 is its center and its
+// radius is 35. effectively accounting for some margin
 func placePointsOnCircle(n int) []point {
 	center := point{50, 50}
 	radius := 35.
@@ -270,8 +321,8 @@ func placePointsOnCircle(n int) []point {
 	angleIncrement := 2 * math.Pi / float64(n)
 	for i := 0; i < n; i++ {
 		angle := float64(i) * angleIncrement
-		x := center.X + radius*math.Cos(angle)
-		y := center.Y + radius*math.Sin(angle)
+		x := center.x + radius*math.Cos(angle)
+		y := center.y + radius*math.Sin(angle)
 		points = append(points, point{x, y})
 	}
 
