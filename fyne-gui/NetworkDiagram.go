@@ -25,7 +25,7 @@ type NetworkDiagram struct {
 }
 
 var stopIcon = widget.NewIcon(theme.MediaStopIcon())
-var playIcon = widget.NewIcon(theme.MediaPlayIcon()) // TODO : not used as of now
+var playIcon = widget.NewIcon(theme.MediaPlayIcon())
 
 type node struct {
 	diagramwidget.DiagramNode
@@ -76,17 +76,22 @@ func NewNetworkDiagram(eb bus.EventBus, wcanvas fyne.Canvas) *NetworkDiagram {
 		networkDiag.refreshOnContinue(diag)
 	})
 
+	eb.Bind(bus.DebugNodesEvt, func() {
+		networkDiag.refreshNodesRunning()
+	})
+
+	eb.Bind(bus.StartNodesEvt, func() {
+		networkDiag.refreshNodesRunning()
+		networkDiag.refreshEdgesClean(diag)
+	})
+
 	diag.Refresh()
 	scroll := container.NewScroll(diag)
 	networkDiag.Widget = scroll
 	return &networkDiag
 }
 
-// when paused in debug mode call this function to refresh on continue
-func (networkDiag *NetworkDiagram) refreshOnContinue(diag *diagramwidget.DiagramWidget) {
-	networkDiag.stateMu.Lock()
-	defer networkDiag.stateMu.Unlock()
-
+func (networkDiag *NetworkDiagram) refreshEdgesClean(diag *diagramwidget.DiagramWidget) {
 	// reset edge source and midpoint decorations
 	for _, e := range networkDiag.edges {
 		// TODO : add functionality to remove decorations directly to fyne-x
@@ -94,14 +99,16 @@ func (networkDiag *NetworkDiagram) refreshOnContinue(diag *diagramwidget.Diagram
 		c := bus.Connection{From: e.from, To: e.to}
 		networkDiag.createLink(c, diag)
 	}
-
-	// set nodes to not-paused
-	for nid, n := range networkDiag.nodes {
-		n.isPaused = false
-		networkDiag.setInnerObj(bus.NodeId(nid))
-	}
-
 	networkDiag.Refresh()
+}
+
+// when paused in debug mode call this function to refresh on continue
+func (networkDiag *NetworkDiagram) refreshOnContinue(diag *diagramwidget.DiagramWidget) {
+	networkDiag.stateMu.Lock()
+	defer networkDiag.stateMu.Unlock()
+
+	networkDiag.refreshEdgesClean(diag)
+	networkDiag.refreshNodesRunning()
 }
 
 // set buttons, matched to corresponding nodes
@@ -275,6 +282,15 @@ func (networkDiag *NetworkDiagram) refreshTransmitted(sendTasks []bus.SendTask) 
 		networkDiag.nodes[t.To].isAwaiting = false
 		networkDiag.setInnerObj(bus.NodeId(t.To))
 		networkDiag.setInnerObj(bus.NodeId(t.From))
+	}
+	networkDiag.Refresh()
+}
+
+// change the UI such that all nodes are viewed as running
+func (networkDiag *NetworkDiagram) refreshNodesRunning() {
+	for nid := range networkDiag.nodes {
+		networkDiag.nodes[nid].isPaused = false
+		networkDiag.setInnerObj(bus.NodeId(nid))
 	}
 	networkDiag.Refresh()
 }
