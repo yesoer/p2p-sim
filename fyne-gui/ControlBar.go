@@ -70,10 +70,10 @@ func NewControlBar(eb bus.EventBus) *ControlBar {
 		e := bus.Event{Type: bus.ContinueNodesEvt, Data: nil}
 		eb.Publish(e)
 
-		stopButton.Disable()
 		debugButton.Disable()
 		startButton.Disable()
 		debugButton.Disable()
+		stopButton.Enable()
 	})
 
 	continueButton.Disable()
