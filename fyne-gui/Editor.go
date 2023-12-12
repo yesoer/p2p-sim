@@ -55,6 +55,7 @@ func NewTextEditor(path string, _ fyne.Window, eb bus.EventBus) *Editor {
 		b, err := os.ReadFile(string(path))
 		if err == nil {
 			input.SetText(string(b))
+			editor.path = string(path)
 			return
 		}
 		log.Error(err)
