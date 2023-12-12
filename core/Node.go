@@ -272,7 +272,7 @@ func (n *node) receive(ctx context.Context, c connection, res chan bus.SendTask)
 		case <-ctx.Done():
 			return
 		case msg := <-c.ch:
-			transmittedData := bus.SendTask{From: n.id, To: c.peer, Data: msg}
+			transmittedData := bus.SendTask{From: c.peer, To: n.id, Data: msg}
 			select {
 			case res <- transmittedData:
 			default: /* channel possibly has been closed */
