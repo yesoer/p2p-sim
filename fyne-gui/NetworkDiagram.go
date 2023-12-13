@@ -77,12 +77,19 @@ func NewNetworkDiagram(eb bus.EventBus, wcanvas fyne.Canvas) *NetworkDiagram {
 	})
 
 	eb.Bind(bus.DebugNodesEvt, func() {
-		networkDiag.refreshNodesRunning()
+		networkDiag.setNodesRunning(true)
+		networkDiag.Refresh()
+	})
+
+	eb.Bind(bus.StopNodesEvt, func() {
+		networkDiag.setNodesRunning(false)
+		networkDiag.Refresh()
 	})
 
 	eb.Bind(bus.StartNodesEvt, func() {
-		networkDiag.refreshNodesRunning()
-		networkDiag.refreshEdgesClean(diag)
+		networkDiag.setNodesRunning(true)
+		networkDiag.setEdgesClean(diag)
+		networkDiag.Refresh()
 	})
 
 	diag.Refresh()
@@ -91,24 +98,14 @@ func NewNetworkDiagram(eb bus.EventBus, wcanvas fyne.Canvas) *NetworkDiagram {
 	return &networkDiag
 }
 
-func (networkDiag *NetworkDiagram) refreshEdgesClean(diag *diagramwidget.DiagramWidget) {
-	// reset edge source and midpoint decorations
-	for _, e := range networkDiag.edges {
-		// TODO : add functionality to remove decorations directly to fyne-x
-		diag.RemoveElement(e.GetDiagramElementID())
-		c := bus.Connection{From: e.from, To: e.to}
-		networkDiag.createLink(c, diag)
-	}
-	networkDiag.Refresh()
-}
-
 // when paused in debug mode call this function to refresh on continue
 func (networkDiag *NetworkDiagram) refreshOnContinue(diag *diagramwidget.DiagramWidget) {
 	networkDiag.stateMu.Lock()
 	defer networkDiag.stateMu.Unlock()
 
-	networkDiag.refreshEdgesClean(diag)
-	networkDiag.refreshNodesRunning()
+	networkDiag.setEdgesClean(diag)
+	networkDiag.setNodesRunning(true)
+	networkDiag.Refresh()
 }
 
 // set buttons, matched to corresponding nodes
@@ -287,12 +284,21 @@ func (networkDiag *NetworkDiagram) refreshTransmitted(sendTasks []bus.SendTask) 
 }
 
 // change the UI such that all nodes are viewed as running
-func (networkDiag *NetworkDiagram) refreshNodesRunning() {
+func (networkDiag *NetworkDiagram) setNodesRunning(isRunning bool) {
 	for nid := range networkDiag.nodes {
-		networkDiag.nodes[nid].isPaused = false
+		networkDiag.nodes[nid].isPaused = !isRunning
 		networkDiag.setInnerObj(bus.NodeId(nid))
 	}
-	networkDiag.Refresh()
+}
+
+func (networkDiag *NetworkDiagram) setEdgesClean(diag *diagramwidget.DiagramWidget) {
+	// reset edge source and midpoint decorations
+	for _, e := range networkDiag.edges {
+		// TODO : add functionality to remove decorations directly to fyne-x
+		diag.RemoveElement(e.GetDiagramElementID())
+		c := bus.Connection{From: e.from, To: e.to}
+		networkDiag.createLink(c, diag)
+	}
 }
 
 // creates a link between two nodes representing a conneciton
