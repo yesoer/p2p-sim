@@ -1,5 +1,7 @@
 # P2PSim
- A simplified environment to test, develop and analyze peer 2 peer systems/algorithms.
+[![GitHub Actions Status](https://github.com/yesoer/P2PSim/actions/workflows/go_build_test.yml/badge.svg)](https://github.com/yesoer/P2PSim/actions)
+
+A simplified environment to test, develop and analyze peer 2 peer systems/algorithms.
 
  > **Note :** Not production ready but under active development.
 
