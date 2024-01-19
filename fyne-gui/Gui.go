@@ -3,6 +3,7 @@ package fynegui
 import (
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/log"
+	"embed"
 	"path"
 	"strings"
 
@@ -21,6 +22,12 @@ type Component interface {
 }
 
 var InitialWindowSize = fyne.NewSize(1000, 800)
+
+// embed code examples
+//
+//
+//go:embed resources/*.go
+var content embed.FS
 
 func RunGUI(eb bus.EventBus) {
 
@@ -63,23 +70,53 @@ func RunGUI(eb bus.EventBus) {
 	})
 	execution.Add(connect)
 
-	// explorer
+	// system file explorer
 	saveIcon := theme.DocumentSaveIcon()
 	basePath := "./"
 	tree := xwidget.NewFileTree(storage.NewFileURI(basePath))
 	tree.OnSelected = func(rawUrl string) {
 		pth := strings.Replace(rawUrl, "file://", "", 1)
-		relativePath := bus.FilePath(path.Join(basePath, pth))
+		relativePath := bus.File{Path: path.Join(basePath, pth), Source: bus.Local}
 		e := bus.Event{Type: bus.FileOpenEvt, Data: relativePath}
 		eb.Publish(e)
 	}
 
-	content := NewModal(tree, wcanvas)
+	explorerModal := NewModal(tree, wcanvas)
 	btn := widget.NewButtonWithIcon("", saveIcon, func() {
-		content.Resize(fyne.NewSize(300, 300))
-		content.Show()
+		explorerModal.Resize(fyne.NewSize(300, 300))
+		explorerModal.Show()
 	})
-	editorTop := container.NewHBox(btn)
+
+	// embedded examples explorer
+	// create a list of files from the embedded filesystem
+	embeddedFiles, err := content.ReadDir("resources")
+	if err != nil {
+		log.Error(err)
+}
+
+	// create a list of buttons from the embedded files which open them
+	var examples []fyne.CanvasObject
+	for _, f := range embeddedFiles {
+		if !f.IsDir() {
+			btn := widget.NewButton(f.Name(), func() {
+				filepath := bus.File{Path: f.Name(), Source: bus.Embed}
+				e := bus.Event{Type: bus.FileOpenEvt, Data: filepath}
+				eb.Publish(e)
+			})
+			examples = append(examples, btn)
+		}
+	}
+
+	// create a modal for the buttons
+	examplesContainer := container.NewVScroll(container.NewVBox(examples...))
+	examplesModal := NewModal(examplesContainer, wcanvas)
+	examplesBtn := widget.NewButton("Examples", func() {
+		examplesModal.Resize(fyne.NewSize(300, 300))
+		examplesModal.Show()
+	})
+
+	// top bar of the editor
+	editorTop := container.NewHBox(btn, examplesBtn)
 
 	// save edited file
 	// TODO : trigger on editor, not canvas/else

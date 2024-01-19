@@ -81,4 +81,14 @@ type NodeId int // TODO : if we keep this, other structs should use it aswell
 
 const FileOpenEvt EventType = "file-open"
 
-type FilePath string
+type FileSource string
+
+const (
+	Local FileSource = "local"
+	Embed FileSource = "embed"
+)
+
+type File struct {
+	Path string
+	Source FileSource
+}

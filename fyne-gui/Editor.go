@@ -51,11 +51,18 @@ func NewTextEditor(path string, _ fyne.Window, eb bus.EventBus) *Editor {
 	}
 
 	// process changes from the file explorer
-	eb.Bind(bus.FileOpenEvt, func(path bus.FilePath) {
-		b, err := os.ReadFile(string(path))
+	eb.Bind(bus.FileOpenEvt, func(file bus.File) {
+		var b []byte
+		var err error
+		if file.Source == "local" {
+			b, err = os.ReadFile(string(file.Path))
+		} else if file.Source == "embed" {
+			b, err = content.ReadFile("resources/" + file.Path)
+		}
+
 		if err == nil {
 			input.SetText(string(b))
-			editor.path = string(path)
+			editor.path = string(file.Path)
 			return
 		}
 		log.Error(err)
