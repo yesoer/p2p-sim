@@ -188,26 +188,31 @@ func (networkDiag *NetworkDiagram) refreshNodes(
 	for i, p := range points {
 		// needs an inital size because its not set for the widget on the
 		// initial pass
-		diagWidth := diag.Size().Width
+		diagWidth := diag.Size().Width // TODO : larger than expected, why ? try container for diag ? temp fix : /2
 		if diagWidth == 0 {
-			diagWidth = InitialWindowSize.Width
+			diagWidth = InitialWindowSize.Width / 2
 		}
 
 		diagHeight := diag.Size().Height
 		if diagHeight == 0 {
-			diagHeight = InitialWindowSize.Height
+			diagHeight = InitialWindowSize.Height // TODO : InitialWindowSize disregards the top bar above the diagram
 		}
 
 		ratiow := diagWidth / 100
 		ratioh := diagHeight / 100
 
 		// draw node
-		x := ratiow * float32(p.x*.5)
-		y := ratioh * float32(p.y*.5)
+		x := ratiow * float32(p.x)
+		y := ratioh * float32(p.y)
 
 		nodeName := "Node" + strconv.Itoa(i)
 		nodeButton := networkDiag.buttons[i]
 		diagNode := diagramwidget.NewDiagramNode(diag, nodeButton, "Id:"+nodeName)
+
+		// anchor nodes at their center
+		x -= nodeButton.Size().Width / 2
+		y -= nodeButton.Size().Height / 2
+
 		diagNode.Move(fyne.Position{X: x, Y: y})
 		newNode := node{diagNode, false, false}
 		networkDiag.nodes = append(networkDiag.nodes, newNode)
