@@ -50,7 +50,9 @@ func NewConsole(eb bus.EventBus) *Console {
 
 		outRow := container.NewGridWithColumns(len(outputs))
 		for i := 0; i < len(outputs); i++ {
-			entry := widget.NewLabel(outputs[i])
+			outputLabel := widget.NewLabel(outputs[i])
+			entry := container.NewScroll(outputLabel)
+			entry.SetMinSize(fyne.NewSize(0, 100))
 			outRow.Add(entry)
 		}
 
