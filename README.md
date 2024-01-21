@@ -89,7 +89,7 @@ Topics to look into (whether we want them) :
 - Automated proof generation (probably requires restriction to certain instructions etc.)
 - Support of an actual editor e.g. a neovim widget would be awesome
 
-Minimizing what users have to do and optimising how they do it, is a continuous effort.
+Minimizing what users have to do and optimizing how they do it, is a continuous effort.
 
 ## Contribution
 
