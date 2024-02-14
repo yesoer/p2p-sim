@@ -89,6 +89,6 @@ const (
 )
 
 type File struct {
-	Path string
+	Path   string
 	Source FileSource
 }
