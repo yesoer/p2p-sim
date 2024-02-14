@@ -25,7 +25,6 @@ var InitialWindowSize = fyne.NewSize(1000, 800)
 
 // embed code examples
 //
-//
 //go:embed resources/*.go
 var content embed.FS
 
@@ -92,7 +91,7 @@ func RunGUI(eb bus.EventBus) {
 	embeddedFiles, err := content.ReadDir("resources")
 	if err != nil {
 		log.Error(err)
-}
+	}
 
 	// create a list of buttons from the embedded files which open them
 	var examples []fyne.CanvasObject
