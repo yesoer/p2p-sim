@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -18,13 +19,43 @@ func NewEditorTopbar(eb bus.EventBus, window fyne.Window) fyne.CanvasObject {
 
 	wcanvas := window.Canvas()
 
-	fileExplorer := fileExplorer(eb, wcanvas)
-	examplesExplorer := examplesExplorer(eb, wcanvas)
+	openProjectBtn := openProject(eb, window)
+	fileExplorerBtn := fileExplorer(eb, wcanvas)
+	examplesExplorerBtn := examplesExplorer(eb, wcanvas)
 
 	// top bar of the editor
-	editorTop := container.NewHBox(fileExplorer, examplesExplorer)
+	editorTop := container.NewHBox(
+		openProjectBtn,
+		fileExplorerBtn,
+		examplesExplorerBtn,
+	)
 
 	return editorTop
+}
+
+// A button to open a file explorer to open a project
+func openProject(eb bus.EventBus, window fyne.Window) *widget.Button {
+	showOpenProjectDialog := func(w fyne.Window) {
+		dialog.ShowFolderOpen(func(u fyne.ListableURI, err error) {
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			if u == nil {
+				return
+			}
+
+			pth := u.Path()
+			e := bus.Event{Type: bus.ProjectOpenEvt, Data: pth}
+			eb.Publish(e)
+		}, w)
+	}
+
+	openProjectBtn := widget.NewButton("Open Project", func() {
+		showOpenProjectDialog(window)
+	})
+
+	return openProjectBtn
 }
 
 func fileExplorer(eb bus.EventBus, wcanvas fyne.Canvas) *widget.Button {
@@ -34,7 +65,7 @@ func fileExplorer(eb bus.EventBus, wcanvas fyne.Canvas) *widget.Button {
 	tree := xwidget.NewFileTree(storage.NewFileURI(basePath))
 	tree.OnSelected = func(rawUrl string) {
 		pth := strings.Replace(rawUrl, "file://", "", 1)
-		relativePath := bus.File{Path: path.Join(basePath, pth), Source: bus.Local}
+		relativePath := bus.File{Path: path.Join(basePath, pth), Source: bus.LocalFile}
 		e := bus.Event{Type: bus.FileOpenEvt, Data: relativePath}
 		eb.Publish(e)
 	}
@@ -61,7 +92,7 @@ func examplesExplorer(eb bus.EventBus, wcanvas fyne.Canvas) *widget.Button {
 	for _, f := range embeddedFiles {
 		if !f.IsDir() {
 			btn := widget.NewButton(f.Name(), func() {
-				filepath := bus.File{Path: f.Name(), Source: bus.Embed}
+				filepath := bus.File{Path: f.Name(), Source: bus.EmbeddedFile}
 				e := bus.Event{Type: bus.FileOpenEvt, Data: filepath}
 				eb.Publish(e)
 			})
