@@ -79,16 +79,19 @@ const AwaitEndEvt EventType = "await-end"
 
 type NodeId int // TODO : if we keep this, other structs should use it aswell
 
+const ProjectOpenEvt EventType = "project-open"
+
 const FileOpenEvt EventType = "file-open"
 
-type FileSource string
+type Source string
 
 const (
-	Local FileSource = "local"
-	Embed FileSource = "embed"
+	LocalFile    Source = "local-file"
+	EmbeddedFile Source = "embedded-file"
+	LocalDir     Source = "local-dir"
 )
 
 type File struct {
 	Path   string
-	Source FileSource
+	Source Source
 }
