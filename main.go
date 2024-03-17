@@ -3,7 +3,7 @@ package main
 import (
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/core"
-	fynegui "distributed-sys-emulator/fyne-gui"
+	fynegui "distributed-sys-emulator/fynegui"
 	"distributed-sys-emulator/log"
 	"flag"
 )
