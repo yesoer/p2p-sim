@@ -1,87 +1,91 @@
 package fynegui
 
-// NOTE : extended (text-)editor from github.com/fyne-io/defyne/
-
 import (
 	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/core"
 	"distributed-sys-emulator/log"
-	"os"
+	"errors"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/widget"
+	"fyne.io/fyne/v2/container"
 )
 
 // Declare conformance with the Component interface
-var _ Component = (*Editor)(nil)
+var _ Component = (*editor)(nil)
 
-type Editor struct {
-	*widget.Entry
-	path string
+type editor struct {
+	c       *fyne.Container
+	current bus.EditorType
 }
 
-func NewTextEditor(path string, _ fyne.Window, eb bus.EventBus) *Editor {
-	input := widget.NewMultiLineEntry()
-	input.TextStyle.Monospace = true
-	input.Wrapping = fyne.TextTruncate
-	input.PlaceHolder = "Type"
+const defaultEditor = bus.Entry
 
-	// read code from disk
-	b, err := os.ReadFile(path)
-	if err == nil {
-		input.SetText(string(b))
+type EditorType interface {
+	fyne.Tappable
+	fyne.Focusable
+	fyne.Widget
+	fyne.Shortcutable
+}
+
+// Wraps the different editors and switches them as needed
+// TODO : when switching editors/recreating them, they must unbind from the bus
+// maybe add a destroy method to the editor/component interface ? Or keep them alive ?
+func NewEditor(window fyne.Window, eb bus.EventBus) *editor {
+	src := bus.Source{
+		Path: "./",
+		Type: bus.Directory,
 	}
 
-	// publish code to core
-	code := core.Code(b)
-	e := bus.Event{Type: bus.CodeChangeEvt, Data: code}
-	eb.Publish(e)
+	var ed EditorType
+	c := container.NewBorder(nil, nil, nil, nil, ed)
+	e := &editor{c, defaultEditor}
+	e.tryReset(src, eb, window)
 
-	// make sure to send editor changes to core
-	changeCB := func(e *Editor) {
-		text := e.Content()
-		code := core.Code(text)
-		evt := bus.Event{Type: bus.CodeChangeEvt, Data: code}
-		eb.Publish(evt)
-	}
-
-	editor := Editor{input, path}
-	editor.OnChanged = func(_ string) {
-		changeCB(&editor)
-	}
-
-	// process changes from the file explorer
-	eb.Bind(bus.FileOpenEvt, func(file bus.File) {
-		var b []byte
-		var err error
-		if file.Source == "local" {
-			b, err = os.ReadFile(string(file.Path))
-		} else if file.Source == "embed" {
-			b, err = content.ReadFile("resources/" + file.Path)
-		}
-
-		if err == nil {
-			input.SetText(string(b))
-			editor.path = string(file.Path)
+	eb.Bind(bus.OpenEvt, func(newSource bus.Source) {
+		if newSource.Type != bus.Directory {
 			return
 		}
-		log.Error(err)
+
+		src = newSource
+		e.tryReset(newSource, eb, window)
 	})
 
-	return &editor
+	eb.Bind(bus.EditorSelectEvt, func(editorType bus.EditorType) {
+		switch editorType {
+		case bus.Neovim:
+			e.current = bus.Neovim
+		case bus.Entry:
+			e.current = bus.Entry
+		}
+
+		e.tryReset(src, eb, window)
+	})
+
+	return e
 }
 
-func (e *Editor) GetCanvasObj() fyne.CanvasObject {
-	return e.Entry
-}
+// Try to create a new instance of the editor with a new path. If it fails,
+// nothing happens
+func (e *editor) tryReset(source bus.Source, eb bus.EventBus, window fyne.Window) {
+	e.c.RemoveAll()
 
-func (e *Editor) Content() string {
-	return e.Text
-}
-
-func (e *Editor) Save() {
-	err := os.WriteFile(e.path, []byte(e.Text), 0644)
-	if err != nil {
+	var component EditorType
+	switch e.current {
+	case bus.Neovim:
+		component = NewNvim(source.Path)
+	case bus.Entry:
+		component = NewCodeEntry(source.Path, eb)
+	default:
+		err := errors.New("Invalid editor type")
 		log.Error(err)
+		return
 	}
+
+	e.c.Add(component)
+	e.c.Refresh()
+	window.Canvas().Focus(component)
+	return
+}
+
+func (e *editor) GetCanvasObj() fyne.CanvasObject {
+	return e.c
 }
