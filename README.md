@@ -18,6 +18,12 @@ A simplified environment to test, develop and analyze peer 2 peer systems/algori
 
 ## Get Started
 
+For bundling code from packages the `goimports` command is required (for now).
+You may install it like this :
+```sh
+go install golang.org/x/tools/cmd/goimports@latest
+```
+
 ### Build
 
 ```sh
@@ -77,12 +83,13 @@ Topics to implement (no specific order) :
   - Node setup
   - Certain connection schemes as described in the next feature
   - Communication via fSend/fAwait
-- Connection schemes
+- Connection schemes/topologies
   - Quick connect : chord ring, tree (random or binary)
   - Define connections using a go function e.g. to connect nodes depending on the custom data/ids
 - Intermediate logs (e.g. via streaming, see TODO in Node.Run())
 - Stress test functionality with varying configurations
   - Could/should also include some simple timing, CPU, RAM inspection mechanisms etc. for benchmarking
+  - Should also include randomized delays, node failures and such
 
 Topics to look into (whether we want them) :
 - Port numbering model ? LOCAL model ?
