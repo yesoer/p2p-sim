@@ -13,11 +13,11 @@ import (
 )
 
 /* This eventbus is supposed to serve as a connection between the core and gui.
-* This includes :
-* - immediately exec the callback on bind, if an event has been published before
-* - no constantly running process
-* - callbacks may publish
-* - implicit eventtype/eventdata matching and checking at runtime
+ * This includes :
+ * - immediately exec the callback on bind, if an event has been published before
+ * - no constantly running process
+ * - callbacks may publish
+ * - implicit eventtype/eventdata matching and checking at runtime
  */
 
 type EventType string
