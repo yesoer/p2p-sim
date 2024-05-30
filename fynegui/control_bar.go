@@ -108,6 +108,6 @@ func extractWholeNumbers(input string) string {
 	return result
 }
 
-func (c ControlBar) GetCanvasObj() fyne.CanvasObject {
+func (c *ControlBar) GetCanvasObj() fyne.CanvasObject {
 	return c.Container
 }
