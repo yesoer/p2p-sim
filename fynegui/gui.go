@@ -2,13 +2,10 @@ package fynegui
 
 import (
 	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/log"
-	"embed"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -17,11 +14,6 @@ type Component interface {
 }
 
 var InitialWindowSize = fyne.NewSize(1000, 800)
-
-// embed code examples
-//
-//go:embed resources/*.go
-var content embed.FS
 
 func RunGUI(eb bus.EventBus) {
 
@@ -35,51 +27,43 @@ func RunGUI(eb bus.EventBus) {
 	//-------------------------------------------------------
 	// CREATE COMPONENTS
 
-	// canvas
+	// right pane canvas
 	canvasRaster := NewNetworkDiagram(eb, window.Canvas())
 
-	// connections
-	connections := NewConnectionsSelect(eb)
-
-	// create a pane to control execution
-	execution := NewControlBar(eb)
-
-	// create an editor for the nodes behaviour
-	workingDir := "."
-	pth := workingDir + "/code.go"
-
-	editorTop := NewEditorTopbar(eb, window)
-
-	editor := NewTextEditor(pth, window, eb)
-
-	console := NewConsole(eb)
-
-	//-------------------------------------------------------
-	// EMBED COMPONENTS IN LAYOUT
-
-	// Popup
-	connectionsCanvasObj := connections.GetCanvasObj()
+	// right pane top bar
+	connectionsSelect := NewConnectionsSelect(eb)
+	connectionsCanvasObj := connectionsSelect.GetCanvasObj()
 	wcanvas := window.Canvas()
 	connectionTab := NewModal(connectionsCanvasObj, wcanvas)
 	connect := widget.NewButton("Connect", func() {
 		connectionTab.Show()
 	})
-	execution.Add(connect)
 
-	// save edited file
-	// TODO : trigger on editor, not canvas/else
-	// TODO : can we get 'command' to work ?
-	saveSC := &desktop.CustomShortcut{KeyName: fyne.KeyS, Modifier: fyne.KeyModifierControl}
-	window.Canvas().AddShortcut(saveSC, func(shortcut fyne.Shortcut) {
-		log.Debug("Stored to disk")
-		editor.Save()
-	})
+	canvasTop := NewControlBar(eb)
+	canvasTop.Add(connect)
 
+	// left pane editor
+	editor := NewEditor(window, eb)
+
+	// left pane top bar
+	editorTop := NewEditorTopbar(eb, window)
+
+	// left pane bottom console
+	console := NewConsole(eb)
+
+	//-------------------------------------------------------
+	// EMBED COMPONENTS IN LAYOUT
 	// Layout : resizable middle split with the editor left, the output console
 	// below it and everything else on the right
-	view := container.NewBorder(execution.GetCanvasObj(), nil, nil, nil, canvasRaster)
-	devenv := container.NewBorder(editorTop, console.GetCanvasObj(), nil, nil, editor.GetCanvasObj())
-	split := container.NewHSplit(devenv, view)
+	rightPane := container.NewBorder(canvasTop.GetCanvasObj(), nil, nil, nil, canvasRaster)
+	leftPane := container.NewBorder(
+		editorTop.GetCanvasObj(),
+		console.GetCanvasObj(),
+		nil,
+		nil,
+		editor.GetCanvasObj(),
+	)
+	split := container.NewHSplit(leftPane, rightPane)
 
 	window.SetContent(split)
 	window.ShowAndRun()
