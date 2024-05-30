@@ -82,28 +82,55 @@ func (n *node) SetData(json any) {
 
 // a node will run continuously, the current state can be changed using signals
 func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
-	code := Code("")
-	updateCode := func(newCode Code) {
-		code = newCode
-		log.Debug("node ", n.id, " received code")
-	}
-	eb.Bind(bus.CodeChangeEvt, updateCode)
 
-	var codeCancel chan any
+	// a channel to communicate all code execution results here, to be published
+	// to the event bus
 	resChan := make(chan bus.NodeOutput)
+	defer close(resChan)
+	go func() {
+		data := <-resChan
+		e := bus.Event{Type: bus.NodeOutputEvt, Data: data}
+		eb.Publish(e)
+	}()
 
-	// wait for other signals
+	// keep the project source up to date
+	var project bus.Source
+	updateProject := func(source bus.Source) {
+		if source.Type != bus.Directory {
+			return
+		}
+		project = source
+	}
+	eb.Bind(bus.OpenEvt, updateProject)
+
+	// a channel to cancel the code execution
+	var codeCancel chan any
+
+	// wait for signals which change the state of the node
 	running := false
 	for sig := range signals {
-		log.Debug("Node ", n.id, " received signal ", sig)
 		switch sig {
 		case START:
+			code, err := bundle(project)
+			if err != nil {
+				data := bus.NodeOutput{Log: err.Error(), Result: nil, NodeId: n.id}
+				resChan <- data
+				break
+			}
+
 			if !running {
 				codeCancel = make(chan any, 1)
 				go n.codeExec(eb, codeCancel, code, resChan, false)
 				running = true
 			}
 		case DEBUG:
+			code, err := bundle(project)
+			if err != nil {
+				data := bus.NodeOutput{Log: err.Error(), Result: nil, NodeId: n.id}
+				resChan <- data
+				break
+			}
+
 			if !running {
 				codeCancel = make(chan any, 1)
 				go n.codeExec(eb, codeCancel, code, resChan, true)
@@ -113,17 +140,13 @@ func (n *node) Run(eb bus.EventBus, signals <-chan Signal) {
 			if running {
 				// kill exec of userF and return to start of loop
 				close(codeCancel)
-				data := <-resChan
-				e := bus.Event{Type: bus.NodeOutputEvt, Data: data}
-				eb.Publish(e)
 				running = false
 			}
 		case TERM:
 			if running {
 				close(codeCancel)
 			}
-			close(resChan)
-			eb.Unbind(bus.CodeChangeEvt, updateCode)
+			eb.Unbind(bus.OpenEvt, updateProject)
 			return
 		}
 	}
