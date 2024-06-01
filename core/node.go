@@ -28,8 +28,8 @@ type connection struct {
 }
 
 type node struct {
-	ins  []connection // stores connections TO other nodes
-	outs []connection // stores connections FROM other nodes
+	ins  []connection // stores connections FROM other nodes
+	outs []connection // stores connections TO other nodes
 	id   int
 	data any // json data to expose to user code
 }
