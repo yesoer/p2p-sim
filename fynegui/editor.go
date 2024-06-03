@@ -1,9 +1,9 @@
 package fynegui
 
 import (
-	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/log"
 	"errors"
+	"github.com/yesoer/p2p-sim/bus"
+	"github.com/yesoer/p2p-sim/log"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"

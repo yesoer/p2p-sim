@@ -2,9 +2,9 @@ package bus
 
 import (
 	"context"
-	"distributed-sys-emulator/log"
-	"distributed-sys-emulator/smap"
 	"errors"
+	"github.com/yesoer/p2p-sim/log"
+	"github.com/yesoer/p2p-sim/smap"
 	"path/filepath"
 	"reflect"
 	"runtime"

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/core"
-	"distributed-sys-emulator/embed"
-	fynegui "distributed-sys-emulator/fynegui"
-	"distributed-sys-emulator/log"
 	"flag"
+	"github.com/yesoer/p2p-sim/bus"
+	"github.com/yesoer/p2p-sim/core"
+	"github.com/yesoer/p2p-sim/embed"
+	fynegui "github.com/yesoer/p2p-sim/fynegui"
+	"github.com/yesoer/p2p-sim/log"
 	"os"
 )
 

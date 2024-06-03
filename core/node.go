@@ -2,8 +2,8 @@ package core
 
 import (
 	"bytes"
-	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/log"
+	"github.com/yesoer/p2p-sim/bus"
+	"github.com/yesoer/p2p-sim/log"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"

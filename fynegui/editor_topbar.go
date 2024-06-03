@@ -1,9 +1,9 @@
 package fynegui
 
 import (
-	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/embed"
-	"distributed-sys-emulator/log"
+	"github.com/yesoer/p2p-sim/bus"
+	"github.com/yesoer/p2p-sim/embed"
+	"github.com/yesoer/p2p-sim/log"
 	"strings"
 	"sync"
 

@@ -2,8 +2,8 @@ package core
 
 import (
 	"bytes"
-	"distributed-sys-emulator/bus"
 	"errors"
+	"github.com/yesoer/p2p-sim/bus"
 	"io/fs"
 	"os"
 	"os/exec"

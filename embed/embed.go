@@ -1,8 +1,8 @@
 package embed
 
 import (
-	"distributed-sys-emulator/log"
 	"embed"
+	"github.com/yesoer/p2p-sim/log"
 	"os"
 )
 

@@ -1,8 +1,8 @@
 package core
 
 import (
-	"distributed-sys-emulator/bus"
-	"distributed-sys-emulator/log"
+	"github.com/yesoer/p2p-sim/bus"
+	"github.com/yesoer/p2p-sim/log"
 
 	"golang.org/x/net/context"
 )

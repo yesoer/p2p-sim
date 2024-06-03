@@ -1,4 +1,4 @@
-module distributed-sys-emulator
+module github.com/yesoer/p2p-sim
 
 go 1.20
 

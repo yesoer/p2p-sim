@@ -1,8 +1,8 @@
 package fynegui
 
 import (
-	"distributed-sys-emulator/bus"
 	"encoding/json"
+	"github.com/yesoer/p2p-sim/bus"
 	"math"
 	"strconv"
 	"sync"

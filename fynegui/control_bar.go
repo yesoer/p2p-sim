@@ -1,7 +1,7 @@
 package fynegui
 
 import (
-	"distributed-sys-emulator/bus"
+	"github.com/yesoer/p2p-sim/bus"
 	"regexp"
 	"strconv"
 

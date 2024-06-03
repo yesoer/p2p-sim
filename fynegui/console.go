@@ -1,8 +1,8 @@
 package fynegui
 
 import (
-	"distributed-sys-emulator/bus"
 	"fmt"
+	"github.com/yesoer/p2p-sim/bus"
 	"image/color"
 	"strconv"
 
