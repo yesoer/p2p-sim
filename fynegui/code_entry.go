@@ -4,6 +4,7 @@ import (
 	"distributed-sys-emulator/bus"
 	"distributed-sys-emulator/log"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"fyne.io/fyne/v2"
@@ -30,8 +31,9 @@ func NewCodeEntry(dirPth string, eb bus.EventBus) *CodeEntry {
 
 	defaultFile := ""
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".go" {
 			defaultFile = dirPth + "/" + entry.Name()
+			break
 		}
 	}
 
