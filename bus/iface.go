@@ -108,7 +108,7 @@ const (
 )
 
 type Source struct {
-	Path string
+	Path string // should be structured as returned by uri.Path()
 	Type SourceType
 }
 

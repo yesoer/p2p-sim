@@ -31,7 +31,7 @@ func NewCodeEntry(dirPth string, eb bus.EventBus) *CodeEntry {
 	defaultFile := ""
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			defaultFile = dirPth + entry.Name()
+			defaultFile = dirPth + "/" + entry.Name()
 		}
 	}
 

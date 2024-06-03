@@ -31,7 +31,7 @@ type EditorType interface {
 // maybe add a destroy method to the editor/component interface ? Or keep them alive ?
 func NewEditor(window fyne.Window, eb bus.EventBus) *editor {
 	src := bus.Source{
-		Path: "./",
+		Path: ".",
 		Type: bus.Directory,
 	}
 
