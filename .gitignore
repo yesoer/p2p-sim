@@ -1,4 +1,8 @@
 # ignore binary
 main
 
+# ignore workspaces (used e.g. when working with a local fyne-nvim version)
+go.work
+go.work.sum
+
 .DS_Store
