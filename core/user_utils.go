@@ -40,17 +40,20 @@ func (n *node) getSender(ctx context.Context, eb bus.EventBus, debug bool) func(
 	}
 }
 
-// function to be used from user code to wait for n messages from all connected
-// peers
-func (n *node) getAwaiter(ctx context.Context, eb bus.EventBus, debug bool) func(cnt int) []any {
-	return func(cnt int) []any {
+// Function to be used from user code to wait for n messages from all connected
+// peers. It extends receivAll with debug possibilities.
+// TODO : unsure about the context here, if it makes sense/would ever be used,
+//
+//	shouldn't it also be handed down to receiveAll ?
+func (n *node) getAwaiter(ctx context.Context, eb bus.EventBus, debug bool) func(cnt int) any {
+	return func(cnt int) any {
 		if debug {
 			awaitStart := bus.Event{Type: bus.AwaitStartEvt, Data: bus.NodeId(n.id)}
 			eb.Publish(awaitStart)
 		}
 
 		log.Debug("Await ", cnt, " from ", len(n.ins), " connections")
-		res, userRes := n.receiveAll(cnt)
+		res := n.receiveAll(cnt)
 
 		if debug {
 			awaitEnd := bus.Event{Type: bus.AwaitEndEvt, Data: res}
@@ -59,34 +62,34 @@ func (n *node) getAwaiter(ctx context.Context, eb bus.EventBus, debug bool) func
 			eb.AwaitEvent(ctx, bus.ContinueNodesEvt)
 		}
 
-		return userRes
+		return res
 	}
 }
 
-func (n *node) receiveAll(cnt int) ([]bus.SendTask, []any) {
+// Function to wait for cnt many messages from all input channels of this node.
+func (n *node) receiveAll(cnt int) []bus.SendTask {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	resChan := make(chan bus.SendTask, cnt)
 	defer close(resChan)
-
 	for _, c := range n.ins {
 		go n.receive(ctx, c, resChan)
 	}
 
 	// accumulate results
-	// TODO : I feel like two slices shouldn't be necessary
 	res := make([]bus.SendTask, 0, cnt)
-	userRes := make([]any, 0, cnt)
 	for i := 0; i < cnt; i++ {
 		response := <-resChan
 		res = append(res, response)
-		userRes = append(userRes, response)
 	}
 
-	return res, userRes
+	return res
 }
 
+// Wait for messages from the given connection and report any results back to
+// the caller via the res channel. Since this is running indefinitely, the caller
+// may kill it through the provided context
 func (n *node) receive(ctx context.Context, c connection, res chan bus.SendTask) {
 	for {
 		select {

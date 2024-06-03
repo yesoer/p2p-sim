@@ -7,7 +7,7 @@ import (
 )
 
 type sendFunc func(targetId int, data any) int
-type awaitFunc func(int) []any
+type awaitFunc func(int) any
 
 // wait for ctx.Done to exit gracefully
 // use fSend and fAwait to communicate between nodes

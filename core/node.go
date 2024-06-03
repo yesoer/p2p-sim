@@ -185,7 +185,7 @@ func (n *node) codeExec(eb bus.EventBus, codeCancel chan any, code Code, resChan
 		return
 	}
 
-	userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) []any) any)
+	userF := v.Interface().(func(ctx context.Context, fSend func(targetId int, data any) int, fAwait func(cnt int) any) any)
 
 	// make node specific data accessible
 	outNeighborsIds := make([]int, len(n.outs))
