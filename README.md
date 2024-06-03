@@ -7,8 +7,8 @@ A simplified environment to test, develop and analyze peer 2 peer systems/algori
 
 ## Table of Contents
 - [Get Started](#get-started)
-  - [Build](#build)
-  - [Run](#run)
+  - [Install and Run](#install-and-run)
+  - [Build and Run from Source](#build-and-run-from-source)
   - [Use](#use)
 - [Features to be Implemented](#features-to-be-implemented)
 - [Contribution](#contribution)
@@ -24,15 +24,17 @@ You may install it like this :
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
-### Build
+### Install and Run
+
+```sh
+go install github.com/yesoer/p2p-sim@latest
+p2p-sim
+```
+
+### Build and Run from Source
 
 ```sh
 go build main.go
-```
-
-### Run
-
-```sh
 ./main
 ```
 
@@ -45,16 +47,17 @@ Find the supported flags using
 
 The main window is split into two panes :
 
-![Overview](./resources/DistributedSystemsEmulator.png)
+![Overview](./resources/p2psim_overview.png)
 
 Your editor on the left where you will write the code running on your nodes and inspect outputs through the consoles below. 
+Fyi as the screenshot shows NeoVim is actually supported ! Though by default you'll face a simple multiline input. You can switch back and forth in the settings modal (by clicking the gear icon).
 
 On the right you can inspect and modify your network diagram by changing connections, the number of nodes and node specific data.
 
 Your codes entry point has to be a function of the following signature :
 ```go
 type sendFunc func(targetId int, data any) int
-type awaitFunc func(int) []any
+type awaitFunc func(int) any
 
 func Run(ctx context.Context, fSend sendFunc, fAwait awaitFunc) any
 ```
@@ -70,7 +73,7 @@ Where `ctx` includes some node specific data :
 
 And fSend and fAwait are your tools for communication. They allow the corresponding node to send any data to one specific neighboring node or await/receive a number of messages from all incoming connections.
 
-> **Note :** Code examples can be found under `resources`.
+> **Note :** Code examples can be explored and edited using the magnifying glass icon. Be aware though, unless you copy the code somewhere else, your changes will be discarded.
 
 ## Features to be Implemented
 
