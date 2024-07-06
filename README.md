@@ -50,7 +50,10 @@ The main window is split into two panes :
 ![Overview](./resources/p2psim_overview.png)
 
 Your editor on the left where you will write the code running on your nodes and inspect outputs through the consoles below. 
-Fyi as the screenshot shows NeoVim is actually supported ! Though by default you'll face a simple multiline input. You can switch back and forth in the settings modal (by clicking the gear icon).
+Fyi as the screenshot shows NeoVim is supported (to a certain degree). Though by default you'll face a simple multiline input. 
+You can switch back and forth in the settings modal (by clicking the gear icon).
+
+> **Note :** All commands which quit windows behave the same as usual except that one window is always left open and switched to Explorer (:Ex).
 
 On the right you can inspect and modify your network diagram by changing connections, the number of nodes and node specific data.
 
@@ -97,7 +100,6 @@ Topics to implement (no specific order) :
 Topics to look into (whether we want them) :
 - Port numbering model ? LOCAL model ?
 - Automated proof generation (probably requires restriction to certain instructions etc.)
-- Support of an actual editor e.g. a neovim widget would be awesome
 
 Minimizing what users have to do and optimising how they do it, is a continuous effort.
 
